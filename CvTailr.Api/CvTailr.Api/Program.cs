@@ -2,6 +2,7 @@ using CvTailr.Api.Clients;
 using CvTailr.Api.Configuration;
 using CvTailr.Api.Endpoints;
 using CvTailr.Api.Services;
+using CvTailr.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Scalar.AspNetCore;
 
@@ -26,6 +27,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IFoundryClient, FoundryClient>();
 builder.Services.AddScoped<IJdParsingService, JdParsingService>();
+builder.Services.AddScoped<ICvParsingService, CvParsingService>();
+builder.Services.AddScoped<IScoringService, ScoringService>();
 
 var app = builder.Build();
 
@@ -47,5 +50,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
     .AllowAnonymous();
 
 app.MapJdEndpoints();
+app.MapCvEndpoints();
+app.MapScoringEndpoints();
 
 app.Run();

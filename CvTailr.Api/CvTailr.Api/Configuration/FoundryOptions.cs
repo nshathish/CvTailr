@@ -10,4 +10,6 @@ public class FoundryOptions
     public string? ApiKey { get; set; }
 
     public string JdParsingDeploymentName { get; set; } = string.Empty;
+
+    public string ScoringDeploymentName { get; set; } = string.Empty;
 }

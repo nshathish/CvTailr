@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using CvTailr.Api.Configuration;
@@ -16,7 +17,10 @@ public class FoundryClient : IFoundryClient
 {
     private const int MaxAttempts = 3;
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     private readonly AzureOpenAIClient _client;
     private readonly ILogger<FoundryClient> _logger;

@@ -1,6 +1,9 @@
 # Per-project task notes — not part of the shipped codebase, kept local to each dev.
 **/tasks/
 
+# Local debugging/troubleshooting notes — not part of the shipped codebase.
+**/docs/
+
 # Per-environment appsettings (e.g. appsettings.Development.json, appsettings.UAT.json)
 # are local/environment-specific and never committed. appsettings.json (the base
 # config, no environment suffix) is tracked in every project.
