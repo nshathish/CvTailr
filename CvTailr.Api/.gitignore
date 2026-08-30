@@ -42,7 +42,7 @@ coverage/
 .nuget/
 
 ## Secrets / local config
-appsettings.*.local.json
+## (per-environment appsettings.*.json ignore rule lives in the root .gitignore)
 secrets.json
 *.env
 .env
