@@ -1,15 +1,29 @@
+using CvTailr.Api.Data;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Enums;
 
 namespace CvTailr.Api.Services;
 
-public class CvParsingService : ICvParsingService
+public class CvParsingService(ICvRepository cvRepository) : ICvParsingService
 {
+    public async Task<CvDocument> UploadAndParseAsync(string userId, string rawLatexSource, CancellationToken cancellationToken = default)
+    {
+        var document = BuildStubDocument(rawLatexSource);
+        document.UserId = userId;
+
+        await cvRepository.UpsertAsync(document, cancellationToken);
+
+        return document;
+    }
+
+    public Task<CvDocument?> GetCurrentAsync(string userId, CancellationToken cancellationToken = default) =>
+        cvRepository.GetByUserIdAsync(userId, cancellationToken);
+
     // TODO: this is a stub. Replace with a real call to latex-service via a
     // future Clients/LatexServiceClient.cs once that client exists — rawLatexSource
     // is currently ignored and a hardcoded CvDocument is returned instead.
-    public Task<CvDocument> ParseAsync(string rawLatexSource, CancellationToken cancellationToken = default)
+    private static CvDocument BuildStubDocument(string rawLatexSource)
     {
         var document = new CvDocument
         {
@@ -96,6 +110,6 @@ public class CvParsingService : ICvParsingService
             ]
         };
 
-        return Task.FromResult(document);
+        return document;
     }
 }

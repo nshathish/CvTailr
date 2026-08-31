@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../CVTailr.Shared/CVTailr.Shared/CVTailr.Shared.csproj" />
+  <Project Path="CvTailr.Web/CvTailr.Web.csproj" />
+</Solution>

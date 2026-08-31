@@ -16,20 +16,36 @@ public static class CvEndpoints
             group.RequireAuthorization();
         }
 
-        group.MapPost("/parse", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
-                ParseCvRequest request,
+        group.MapPost("/upload", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
+                UploadCvRequest request,
                 ICvParsingService cvParsingService,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
                 if (string.IsNullOrWhiteSpace(request.RawLatexSource))
                     return TypedResults.BadRequest("rawLatexSource is required.");
 
-                var result = await cvParsingService.ParseAsync(request.RawLatexSource, cancellationToken);
+                var userId = currentUserContext.GetUserId();
+                var result = await cvParsingService.UploadAndParseAsync(userId, request.RawLatexSource, cancellationToken);
                 return TypedResults.Ok(result);
             })
-            .WithName("ParseCv")
-            .WithSummary("Parses raw LaTeX CV source into a structured CvDocument.");
+            .WithName("UploadCv")
+            .WithSummary("Uploads/replaces the current user's CV: parses raw LaTeX source into a structured CvDocument and persists it.");
+
+        group.MapGet("/current", async Task<Results<Ok<CvDocument>, NotFound<string>>> (
+                ICvParsingService cvParsingService,
+                ICurrentUserContext currentUserContext,
+                CancellationToken cancellationToken) =>
+            {
+                var userId = currentUserContext.GetUserId();
+                var document = await cvParsingService.GetCurrentAsync(userId, cancellationToken);
+                return document is null
+                    ? TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.")
+                    : TypedResults.Ok(document);
+            })
+            .WithName("GetCurrentCv")
+            .WithSummary("Returns the current user's persisted CvDocument.");
     }
 }
 
-public record ParseCvRequest(string? RawLatexSource);
+public record UploadCvRequest(string? RawLatexSource);

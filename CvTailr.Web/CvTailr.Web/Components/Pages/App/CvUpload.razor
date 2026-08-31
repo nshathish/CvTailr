@@ -1,0 +1,169 @@
+@page "/cv/upload"
+@rendermode InteractiveServer
+
+@inject ApiClient ApiClient
+@inject WorkflowStateService WorkflowState
+
+<PageTitle>Upload CV</PageTitle>
+
+<div class="mx-auto max-w-3xl px-4 py-8 space-y-6">
+    <h1 class="text-2xl font-semibold text-slate-900">Upload your CV</h1>
+
+    <div class="space-y-3">
+        <InputFile OnChange="OnFileSelected" accept=".tex"
+                   class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100" />
+
+        @if (validationError is not null)
+        {
+            <p class="text-sm text-red-600">@validationError</p>
+        }
+        else if (selectedFile is not null)
+        {
+            <p class="text-sm text-slate-500">Selected: @selectedFile.Name (@FormatSize(selectedFile.Size))</p>
+        }
+
+        <button
+            @onclick="UploadAsync"
+            disabled="@(isLoading || selectedFile is null || validationError is not null)"
+            class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
+            @(isLoading ? "Uploading..." : "Upload and parse")
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex items-center gap-2 text-sm text-slate-500">
+            <svg class="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <span>Parsing CV...</span>
+        </div>
+    }
+
+    @if (errorMessage is not null)
+    {
+        <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+            <p class="font-medium">Failed to parse CV.</p>
+            <p class="mt-1">@errorMessage</p>
+        </div>
+    }
+
+    @if (parsedCv is not null)
+    {
+        <div class="space-y-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900">Roles</h2>
+                <div class="mt-2 space-y-4">
+                    @foreach (var role in parsedCv.Roles)
+                    {
+                        <div class="rounded-md border border-slate-100 p-3">
+                            <div class="flex items-baseline justify-between gap-3">
+                                <p class="text-sm font-medium text-slate-900">@role.Title · @role.CompanyName</p>
+                                <p class="shrink-0 text-xs text-slate-500">@FormatDateRange(role.StartDate, role.EndDate)</p>
+                            </div>
+                            <ul class="mt-2 list-disc space-y-1 pl-5">
+                                @foreach (var bullet in role.Bullets)
+                                {
+                                    <li class="text-sm text-slate-700">
+                                        @(bullet.TailoredText ?? bullet.OriginalText)
+                                        @if (!string.IsNullOrWhiteSpace(bullet.Language))
+                                        {
+                                            <span class="ml-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">@bullet.Language</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-medium text-slate-700">Skills</h3>
+                @if (parsedCv.Skills.Count == 0)
+                {
+                    <p class="mt-1 text-sm text-slate-500">None detected.</p>
+                }
+                else
+                {
+                    <div class="mt-1 flex flex-wrap gap-2">
+                        @foreach (var skill in parsedCv.Skills)
+                        {
+                            <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">@skill.Name</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Matches the API's request size expectations (see tasks/003-cv-upload-page.md).
+    private const long MaxFileSizeBytes = 2 * 1024 * 1024;
+
+    private IBrowserFile? selectedFile;
+    private string? validationError;
+    private bool isLoading;
+    private string? errorMessage;
+    private CvDocument? parsedCv;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        parsedCv = null;
+        selectedFile = e.File;
+
+        if (!selectedFile.Name.EndsWith(".tex", StringComparison.OrdinalIgnoreCase))
+        {
+            validationError = "Only .tex files are supported.";
+        }
+        else if (selectedFile.Size > MaxFileSizeBytes)
+        {
+            validationError = $"File is too large ({FormatSize(selectedFile.Size)}). Maximum size is {FormatSize(MaxFileSizeBytes)}.";
+        }
+        else
+        {
+            validationError = null;
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        if (selectedFile is null || validationError is not null)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+        parsedCv = null;
+
+        try
+        {
+            using var reader = new StreamReader(selectedFile.OpenReadStream(MaxFileSizeBytes));
+            var rawLatexSource = await reader.ReadToEndAsync();
+
+            var result = await ApiClient.ParseCvAsync(rawLatexSource);
+            parsedCv = result;
+            WorkflowState.CurrentCv = result;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes / (1024.0 * 1024.0):0.#} MB"
+    };
+
+    private static string FormatDateRange(DateOnly start, DateOnly? end) =>
+        $"{start:MMM yyyy} – {(end.HasValue ? end.Value.ToString("MMM yyyy") : "Present")}";
+}

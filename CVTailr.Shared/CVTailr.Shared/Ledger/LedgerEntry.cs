@@ -3,6 +3,7 @@ namespace CvTailr.Shared.Ledger;
 public class LedgerEntry
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string CvId { get; set; } = string.Empty;
     public string SubjectName { get; set; } = string.Empty;
     public string? RelatedBulletId { get; set; }
     public LedgerStatus Status { get; set; } = LedgerStatus.Provisional;

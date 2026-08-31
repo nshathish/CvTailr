@@ -1,5 +1,5 @@
+using CvTailr.Api.Data;
 using CvTailr.Api.Services.Interfaces;
-using CvTailr.Shared.Cv;
 using CvTailr.Shared.Jd;
 using CvTailr.Shared.Scoring;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -18,23 +18,30 @@ public static class ScoringEndpoints
             group.RequireAuthorization();
         }
 
-        group.MapPost("/", async Task<Results<Ok<MatchScoreResult>, BadRequest<string>>> (
+        group.MapPost("/", async Task<Results<Ok<MatchScoreResult>, BadRequest<string>, NotFound<string>>> (
                 ScoreRequest request,
                 IScoringService scoringService,
+                ICvRepository cvRepository,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
-                if (request.JdRequirements is null || request.CvDocument is null)
-                    return TypedResults.BadRequest("jdRequirements and cvDocument are both required.");
+                if (request.JdRequirements is null)
+                    return TypedResults.BadRequest("jdRequirements is required.");
 
                 if (request.JdRequirements.Requirements.Count == 0)
                     return TypedResults.BadRequest("jdRequirements.requirements must be non-empty.");
 
-                var result = await scoringService.ScoreAsync(request.JdRequirements, request.CvDocument, cancellationToken);
+                var userId = currentUserContext.GetUserId();
+                var cvDocument = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+                if (cvDocument is null)
+                    return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
+
+                var result = await scoringService.ScoreAsync(request.JdRequirements, cvDocument, cancellationToken);
                 return TypedResults.Ok(result);
             })
             .WithName("ScoreCv")
-            .WithSummary("Scores a CvDocument against JdRequirements and returns a MatchScoreResult.");
+            .WithSummary("Scores the current user's persisted CvDocument against JdRequirements and returns a MatchScoreResult.");
     }
 }
 
-public record ScoreRequest(JdRequirements? JdRequirements, CvDocument? CvDocument);
+public record ScoreRequest(JdRequirements? JdRequirements);
