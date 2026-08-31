@@ -1,4 +1,4 @@
-using CvTailr.Api.Services;
+using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Jd;
 using Microsoft.AspNetCore.Http.HttpResults;
 

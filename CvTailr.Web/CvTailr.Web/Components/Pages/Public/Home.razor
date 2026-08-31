@@ -1,0 +1,155 @@
+@page "/"
+@layout PublicMainLayout
+
+<PageTitle>CVTailr</PageTitle>
+
+<section class="relative overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white">
+    <div class="mx-auto grid max-w-6xl items-center gap-14 px-6 py-20 sm:py-28 md:grid-cols-2">
+
+        <div>
+            <p class="text-sm font-semibold uppercase tracking-widest text-indigo-600">
+                CV Matching · Tailoring · Interview Drills
+            </p>
+            <h1 class="mt-4 text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl">
+                Tailor your CV.<br />Prove it in the room.
+            </h1>
+            <p class="mt-6 max-w-md text-lg text-slate-600">
+                Paste a job description and CVTailr scores your fit, proposes tailored
+                additions, and drills you on the gaps — so nothing on your CV goes
+                untested before an interviewer finds it.
+            </p>
+            <div class="mt-9 flex flex-wrap items-center gap-4">
+                <a href="signup"
+                   class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-500">
+                    Create your account
+                    <span aria-hidden="true">→</span>
+                </a>
+                <a href="login" class="text-sm font-medium text-slate-600 hover:text-indigo-600">
+                    Already have an account? Log in
+                </a>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50">
+            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+                <p class="font-mono text-xs text-slate-500">Match report — Senior Backend Engineer @@ Northwind</p>
+                <span class="rounded-full bg-indigo-50 px-2 py-0.5 font-mono text-[10px] text-indigo-600">LIVE</span>
+            </div>
+
+            <div class="flex items-center gap-5 p-5">
+                <svg width="104" height="104" viewBox="0 0 120 120" class="shrink-0">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="#E0E7FF" stroke-width="10" />
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="#4F46E5" stroke-width="10"
+                            stroke-linecap="round" stroke-dasharray="284.2 326.7"
+                            transform="rotate(-90 60 60)" />
+                    <text x="60" y="56" text-anchor="middle" font-size="26" font-weight="700" fill="#0F172A">87%</text>
+                    <text x="60" y="74" text-anchor="middle" font-size="10" fill="#64748B" font-family="monospace">MATCH</text>
+                </svg>
+
+                <div class="flex flex-col gap-2 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 rounded-full bg-indigo-600"></span>
+                        <span class="text-slate-600">12 of 14 required skills found</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 rounded-full bg-indigo-600"></span>
+                        <span class="text-slate-600">2 gaps → study plan generated</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="h-1.5 w-1.5 rounded-full bg-indigo-600"></span>
+                        <span class="text-slate-600">3 additions proposed for review</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-200 bg-slate-50 px-5 py-4">
+                <p class="mb-2 font-mono text-[10px] text-slate-500">TAILORED BULLET · EXPERIENCE</p>
+                <p class="text-sm text-slate-900">
+                    Led migration of payment services to event-driven microservices
+                    <span class="rounded bg-indigo-50 px-1 text-indigo-700">, cutting deployment lead time by 40%</span>.
+                </p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-mono text-[10px] text-amber-700">
+                        PROVISIONAL
+                    </span>
+                    <span class="font-mono text-[10px] text-slate-500">Drilled 4/5 correct — pending your confirmation</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<section id="how-it-works" class="mx-auto max-w-5xl px-6 py-20">
+    <h2 class="text-center text-2xl font-semibold tracking-tight text-slate-900">How it works</h2>
+    <div class="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="text-center sm:text-left">
+            <span class="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white sm:mx-0">1</span>
+            <h3 class="mt-4 text-base font-semibold text-slate-900">Paste a job description</h3>
+            <p class="mt-2 text-sm text-slate-600">Drop in the raw JD text — no formatting or cleanup needed.</p>
+        </div>
+        <div class="text-center sm:text-left">
+            <span class="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white sm:mx-0">2</span>
+            <h3 class="mt-4 text-base font-semibold text-slate-900">See your match score</h3>
+            <p class="mt-2 text-sm text-slate-600">Understand exactly where your CV already fits and where it falls short.</p>
+        </div>
+        <div class="text-center sm:text-left">
+            <span class="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white sm:mx-0">3</span>
+            <h3 class="mt-4 text-base font-semibold text-slate-900">Review tailored CV suggestions</h3>
+            <p class="mt-2 text-sm text-slate-600">Approve each proposed change individually — nothing is added silently.</p>
+        </div>
+        <div class="text-center sm:text-left">
+            <span class="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white sm:mx-0">4</span>
+            <h3 class="mt-4 text-base font-semibold text-slate-900">Drill for the interview</h3>
+            <p class="mt-2 text-sm text-slate-600">Practice questions on what you added, so it stays on the CV only if you can defend it.</p>
+        </div>
+    </div>
+</section>
+
+<section class="border-t border-slate-200 bg-slate-50 py-20">
+    <div class="mx-auto max-w-5xl px-6">
+        <h2 class="text-center text-2xl font-semibold tracking-tight text-slate-900">Built so you never get caught off guard</h2>
+        <p class="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-600">
+            Tailoring a CV is easy to overdo. CVTailr is built around three
+            rules that keep every change honest.
+        </p>
+
+        <div class="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3">
+            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-base font-semibold text-slate-900">Nothing added silently</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    Every suggested bullet or skill is proposed to you individually —
+                    approve or reject each one. No "apply all" button, ever.
+                </p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-base font-semibold text-slate-900">Provisional until it's proven</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    Approved additions are marked provisional and drilled like an
+                    interview question. Hold up under practice and it's proposed for
+                    promotion; struggle with it and CVTailr flags it for review —
+                    never removed without your say-so.
+                </p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 class="text-base font-semibold text-slate-900">Dates and employers stay untouched</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    Tailoring only ever rewords bullet content. Company names and
+                    employment dates are never targets of any rewrite.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="border-t border-slate-200 py-10 text-sm text-slate-500">
+    <div class="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 sm:flex-row sm:justify-between">
+        <span class="font-semibold text-slate-700">CVTailr</span>
+        <nav class="flex items-center gap-6">
+            <a href="#how-it-works" class="hover:text-indigo-600">How it works</a>
+            <a href="login" class="hover:text-indigo-600">Log in</a>
+            <a href="signup" class="hover:text-indigo-600">Sign up</a>
+        </nav>
+        <span class="text-slate-400">&copy; @DateTime.UtcNow.Year CVTailr</span>
+    </div>
+</footer>

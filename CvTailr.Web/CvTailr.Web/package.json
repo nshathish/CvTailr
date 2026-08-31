@@ -1,0 +1,13 @@
+{
+  "name": "cvtailr-web-styles",
+  "private": true,
+  "description": "Scoped to the Tailwind CSS build step for CvTailr.Web. Not a Node app.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./Styles/app.css -o ./wwwroot/css/app.css --minify",
+    "watch:css": "tailwindcss -i ./Styles/app.css -o ./wwwroot/css/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}

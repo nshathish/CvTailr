@@ -1,0 +1,28 @@
+﻿@inherits LayoutComponentBase
+
+<header class="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
+    <nav class="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
+        <a href="" class="text-lg font-bold tracking-tight text-indigo-600">CVTailr</a>
+        <div class="flex items-center gap-2">
+            <a href="#how-it-works"
+               class="hidden rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600 sm:inline-block">
+                How it works
+            </a>
+            <NavLink class="rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-600" href="login">
+                Log in
+            </NavLink>
+            <NavLink class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500" href="signup">
+                Sign up
+            </NavLink>
+
+        </div>
+    </nav>
+</header>
+
+@Body
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
