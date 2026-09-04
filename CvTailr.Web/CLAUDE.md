@@ -23,16 +23,14 @@ constantly-connected server) — Interactive Server is the simpler
 default given this is a personal tool, not a public-facing app needing
 offline/edge behavior.
 
-## Auth (current phase — LOCAL DEV ONLY)
+## Auth
 
-Authorization is intentionally disabled for now, matching
-`CvTailr.Api`'s Development-only auth bypass. This project currently
-makes NO auth-related HTTP calls and attaches NO bearer token to
-requests. This is temporary and must be revisited before any real
-deployment — do not treat the absence of auth code here as the final
-design. When real auth is added later, it will be Entra ID / JWT
-bearer, consistent with the root CLAUDE.md, and this section must be
-updated at that time.
+Real sign-in is wired via `Microsoft.Identity.Web` against the Entra
+External ID (CIAM) tenant — see `docs/001-entraid-authentication.md` for
+the full implementation. `Pages/App/` is protected by `[Authorize]`
+(enforced via `AuthorizeRouteView` in `Routes.razor`), sign-in/sign-up/
+sign-out all go through `MicrosoftIdentity/Account/*` endpoints, and every
+`ApiClient` request carries a Bearer token acquired via `ITokenAcquisition`.
 
 ## How this project talks to the Api
 
@@ -68,6 +66,19 @@ CvTailr.Web/
 ├── wwwroot/
 └── appsettings.json
 
+
+## Navigation links
+
+- Use `<NavLink>`, not a plain `<a>`, for links to this app's own Blazor
+  routes (nav items, in-app CTAs) — it participates in the router and
+  applies an `active` CSS class on match, which `<a>` never does.
+- Plain `<a>` is the correct exception for anything that isn't a routable
+  `@page` component in this app: the Entra External ID challenge/sign-out
+  endpoints (`MicrosoftIdentity/Account/SignIn`, `/account/logout`), or any
+  other external/controller-routed redirect. Add
+  `data-enhance-nav="false"` on those so Blazor's enhanced navigation
+  doesn't try to intercept the redirect. See
+  `docs/001-entraid-authentication.md` for why the auth links work this way.
 
 ## UI/workflow conventions
 

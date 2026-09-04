@@ -1,4 +1,5 @@
 using CvTailr.Api.Configuration;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Shared.Ledger;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;

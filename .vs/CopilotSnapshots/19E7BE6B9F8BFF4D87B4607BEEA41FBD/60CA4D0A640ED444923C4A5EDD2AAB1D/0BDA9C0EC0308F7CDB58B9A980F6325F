@@ -1,0 +1,79 @@
+﻿using CvTailr.Web.Components;
+using CvTailr.Web.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Identity.Web;
+using Microsoft.Identity.Web.UI;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"]
+    ?? throw new InvalidOperationException("Configuration \"Api:BaseUrl\" is required.");
+var downstreamApiScopes = builder.Configuration.GetSection("DownstreamApi:Scopes").Get<string[]>()
+    ?? throw new InvalidOperationException("Configuration \"DownstreamApi:Scopes\" is required.");
+
+// Entra External ID (CIAM) sign-in — see CvTailr.Web/CLAUDE.md and
+// tasks/004-entraid-authentication.md. Configuration comes from the "AzureAd"
+// section (User Secrets / appsettings.Development.json locally).
+builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"))
+    .EnableTokenAcquisitionToCallDownstreamApi(downstreamApiScopes)
+    .AddInMemoryTokenCaches();
+
+// Hosts Microsoft.Identity.Web.UI's MicrosoftIdentity/Account/{SignIn,SignOut,...}
+// controller actions that the public nav's Log in/Sign up links and the
+// authenticated nav's sign-out link redirect to directly.
+builder.Services.AddControllersWithViews()
+    .AddMicrosoftIdentityUI();
+
+builder.Services.AddAuthorization();
+builder.Services.AddCascadingAuthenticationState();
+
+// Required for ApiBearerTokenHandler to access the current HTTP context
+builder.Services.AddHttpContextAccessor();
+
+// Attaches a Bearer access token (for DownstreamApi:Scopes) to every request
+// this HttpClient makes to CvTailr.Api.
+builder.Services.AddTransient<ApiBearerTokenHandler>();
+builder.Services.AddHttpClient<ApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl))
+    .AddHttpMessageHandler<ApiBearerTokenHandler>();
+
+builder.Services.AddScoped<WorkflowStateService>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseAntiforgery();
+
+app.MapControllers();
+
+// Custom sign-out endpoint: Microsoft.Identity.Web.UI's built-in SignOut action
+// always redirects to its own confirmation page, but this app wants users
+// dropped back on the public landing page once Entra's RP-initiated logout
+// completes.
+app.MapGet("/account/logout", () => TypedResults.SignOut(
+        new AuthenticationProperties { RedirectUri = "/" },
+        [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]))
+    .RequireAuthorization();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+app.Run();

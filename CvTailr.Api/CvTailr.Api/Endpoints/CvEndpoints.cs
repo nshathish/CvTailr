@@ -8,13 +8,8 @@ public static class CvEndpoints
 {
     public static void MapCvEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/cv");
-
-        var env = app.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-        if (!env.IsDevelopment())
-        {
-            group.RequireAuthorization();
-        }
+        var group = app.MapGroup("/api/cv")
+            .RequireAuthorization();
 
         group.MapPost("/upload", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
                 UploadCvRequest request,

@@ -1,0 +1,31 @@
+﻿using System.Net.Http.Headers;
+using CvTailr.Web.Configuration;
+using Microsoft.Extensions.Options;
+using Microsoft.Identity.Web;
+
+namespace CvTailr.Web.Services;
+
+// Attaches an access token (for the CvTailr.Api scope) as a Bearer header on every
+// outgoing ApiClient request. Uses IHttpContextAccessor to retrieve the authenticated
+// user from the current HTTP context.
+public class ApiBearerTokenHandler(
+    ITokenAcquisition tokenAcquisition,
+    IHttpContextAccessor httpContextAccessor,
+    IOptions<DownstreamApiOptions> downstreamApiOptions) : DelegatingHandler
+{
+    private readonly string[] _scopes = downstreamApiOptions.Value.Scopes;
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var httpContext = httpContextAccessor.HttpContext;
+        var user = httpContext?.User;
+
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            var accessToken = await tokenAcquisition.GetAccessTokenForUserAsync(_scopes, user: user);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        return await base.SendAsync(request, cancellationToken);
+    }
+}

@@ -1,0 +1,11 @@
+@inject NavigationManager NavigationManager
+
+@code {
+    protected override void OnInitialized()
+    {
+        var redirectUri = Uri.EscapeDataString(NavigationManager.ToBaseRelativePath(NavigationManager.Uri) is { Length: > 0 } path
+            ? $"/{path}"
+            : "/");
+        NavigationManager.NavigateTo($"MicrosoftIdentity/Account/SignIn?redirectUri={redirectUri}", forceLoad: true);
+    }
+}

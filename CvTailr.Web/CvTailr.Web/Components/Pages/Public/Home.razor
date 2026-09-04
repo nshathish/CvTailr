@@ -19,12 +19,12 @@
                 untested before an interviewer finds it.
             </p>
             <div class="mt-9 flex flex-wrap items-center gap-4">
-                <a href="signup"
+                <a href="MicrosoftIdentity/Account/SignIn?redirectUri=%2Fjd" data-enhance-nav="false"
                    class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-indigo-500">
                     Create your account
                     <span aria-hidden="true">→</span>
                 </a>
-                <a href="login" class="text-sm font-medium text-slate-600 hover:text-indigo-600">
+                <a href="/authentication/login" data-enhance-nav="false" class="text-sm font-medium text-slate-600 hover:text-indigo-600">
                     Already have an account? Log in
                 </a>
             </div>
@@ -146,9 +146,9 @@
     <div class="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 sm:flex-row sm:justify-between">
         <span class="font-semibold text-slate-700">CVTailr</span>
         <nav class="flex items-center gap-6">
-            <a href="#how-it-works" class="hover:text-indigo-600">How it works</a>
-            <a href="login" class="hover:text-indigo-600">Log in</a>
-            <a href="signup" class="hover:text-indigo-600">Sign up</a>
+            <NavLink href="#how-it-works" class="hover:text-indigo-600">How it works</NavLink>
+            <a href="MicrosoftIdentity/Account/SignIn?redirectUri=%2Fjd" data-enhance-nav="false" class="hover:text-indigo-600">Log in</a>
+            <a href="MicrosoftIdentity/Account/SignIn?redirectUri=%2Fjd" data-enhance-nav="false" class="hover:text-indigo-600">Sign up</a>
         </nav>
         <span class="text-slate-400">&copy; @DateTime.UtcNow.Year CVTailr</span>
     </div>
