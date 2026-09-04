@@ -1,4 +1,4 @@
-using CvTailr.Api.Data;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Enums;

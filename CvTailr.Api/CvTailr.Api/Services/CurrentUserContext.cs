@@ -2,12 +2,23 @@ using CvTailr.Api.Services.Interfaces;
 
 namespace CvTailr.Api.Services;
 
-// TODO: replace with real Entra ID user resolution — GetUserId should read the JWT claim
-// (e.g. "oid" or "sub") once auth is wired up, instead of returning a constant. This is the
-// ONLY place in the codebase that should know about the placeholder dev user ID.
-public class CurrentUserContext : ICurrentUserContext
+public class CurrentUserContext(IHttpContextAccessor httpContextAccessor) : ICurrentUserContext
 {
-    private const string DevUserId = "dev-user-001";
+    // Entra sometimes maps the short "oid" claim type to this long URI form depending on
+    // JwtBearerOptions.MapInboundClaims — check both so behavior doesn't depend on that setting.
+    private const string ObjectIdClaimType = "oid";
+    private const string ObjectIdClaimTypeUri = "http://schemas.microsoft.com/identity/claims/objectidentifier";
 
-    public string GetUserId() => DevUserId;
+    public string GetUserId()
+    {
+        var user = httpContextAccessor.HttpContext?.User
+            ?? throw new InvalidOperationException("No HttpContext is available to resolve the current user.");
+
+        var objectId = user.FindFirst(ObjectIdClaimType)?.Value
+            ?? user.FindFirst(ObjectIdClaimTypeUri)?.Value;
+
+        return string.IsNullOrWhiteSpace(objectId)
+            ? throw new InvalidOperationException("The authenticated user's token has no 'oid' claim.")
+            : objectId;
+    }
 }

@@ -1,6 +1,6 @@
 using CvTailr.Shared.Ledger;
 
-namespace CvTailr.Api.Data;
+namespace CvTailr.Api.Data.Interfaces;
 
 public interface ILedgerRepository
 {

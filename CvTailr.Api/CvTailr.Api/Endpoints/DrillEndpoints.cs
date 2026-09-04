@@ -1,4 +1,4 @@
-using CvTailr.Api.Data;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Drill;
 using CvTailr.Shared.Jd;
@@ -11,13 +11,8 @@ public static class DrillEndpoints
 {
     public static void MapDrillEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/drill");
-
-        var env = app.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-        if (!env.IsDevelopment())
-        {
-            group.RequireAuthorization();
-        }
+        var group = app.MapGroup("/api/drill")
+            .RequireAuthorization();
 
         group.MapPost("/question", async Task<Results<Ok<DrillQuestion>, BadRequest<string>, NotFound<string>>> (
                 GenerateQuestionRequest request,

@@ -2,6 +2,7 @@ using Azure.Identity;
 using CvTailr.Api.Clients;
 using CvTailr.Api.Configuration;
 using CvTailr.Api.Data;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Endpoints;
 using CvTailr.Api.Services;
 using CvTailr.Api.Services.Interfaces;
@@ -14,6 +15,7 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor();
 
 // Minimal API request/response binding uses its own JsonSerializerOptions instance — without
 // this, enum request bodies (e.g. { "outcome": "Fail" }) fail to bind since the default expects
@@ -34,7 +36,10 @@ builder.Services
     .AddJwtBearer(options =>
     {
         options.Authority = entraId.Authority;
-        options.Audience = entraId.Audience;
+        // External ID tokens are sometimes stamped with the bare ClientId as `aud` rather than
+        // the "api://{clientId}" Application ID URI, depending on how the API's Application ID
+        // URI is configured — accept either form.
+        options.TokenValidationParameters.ValidAudiences = [entraId.Audience, entraId.ClientId];
     });
 
 builder.Services.AddAuthorization();

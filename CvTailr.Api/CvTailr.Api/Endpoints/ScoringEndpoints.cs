@@ -1,4 +1,4 @@
-using CvTailr.Api.Data;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Jd;
 using CvTailr.Shared.Scoring;
@@ -10,13 +10,8 @@ public static class ScoringEndpoints
 {
     public static void MapScoringEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/score");
-
-        var env = app.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-        if (!env.IsDevelopment())
-        {
-            group.RequireAuthorization();
-        }
+        var group = app.MapGroup("/api/score")
+            .RequireAuthorization();
 
         group.MapPost("/", async Task<Results<Ok<MatchScoreResult>, BadRequest<string>, NotFound<string>>> (
                 ScoreRequest request,

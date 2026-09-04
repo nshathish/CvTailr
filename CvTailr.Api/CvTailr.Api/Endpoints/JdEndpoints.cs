@@ -8,13 +8,8 @@ public static class JdEndpoints
 {
     public static void MapJdEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/jd");
-
-        var env = app.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-        if (!env.IsDevelopment())
-        {
-            group.RequireAuthorization();
-        }
+        var group = app.MapGroup("/api/jd")
+            .RequireAuthorization();
 
         group.MapPost("/parse", async Task<Results<Ok<JdRequirements>, BadRequest<string>>> (
                 ParseJdRequest request,

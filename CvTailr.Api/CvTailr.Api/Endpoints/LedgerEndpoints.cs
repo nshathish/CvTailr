@@ -9,13 +9,8 @@ public static class LedgerEndpoints
 {
     public static void MapLedgerEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/ledger");
-
-        var env = app.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-        if (!env.IsDevelopment())
-        {
-            group.RequireAuthorization();
-        }
+        var group = app.MapGroup("/api/ledger")
+            .RequireAuthorization();
 
         group.MapPost("/register", async Task<Results<Ok<List<LedgerEntry>>, BadRequest<string>>> (
                 RegisterLedgerRequest request,

@@ -1,4 +1,5 @@
 using CvTailr.Api.Configuration;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Shared.Cv;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
@@ -27,9 +28,7 @@ public class CosmosCvRepository : ICvRepository
             var page = await iterator.ReadNextAsync(cancellationToken);
             var match = page.FirstOrDefault();
             if (match is not null)
-            {
                 return match;
-            }
         }
 
         return null;
@@ -37,13 +36,9 @@ public class CosmosCvRepository : ICvRepository
 
     public async Task UpsertAsync(CvDocument document, CancellationToken cancellationToken = default)
     {
-        // One CV per user: reuse the existing document's Id (if any) so this overwrites the same
-        // item instead of creating a second one in the same partition.
         var existing = await GetByUserIdAsync(document.UserId, cancellationToken);
         if (existing is not null)
-        {
             document.Id = existing.Id;
-        }
 
         await _container.UpsertItemAsync(document, new PartitionKey(document.UserId), cancellationToken: cancellationToken);
     }

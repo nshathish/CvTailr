@@ -12,3 +12,6 @@ appsettings.*.json
 
 # Node deps for the Tailwind CSS build step (CvTailr.Web) — never committed.
 node_modules/
+
+# Visual Studio local cache/state folder — never committed.
+.vs/

@@ -1,4 +1,4 @@
-using CvTailr.Api.Data;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Jd;
 using CvTailr.Shared.Scoring;
@@ -11,13 +11,8 @@ public static class TailoringEndpoints
 {
     public static void MapTailoringEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/tailor");
-
-        var env = app.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
-        if (!env.IsDevelopment())
-        {
-            group.RequireAuthorization();
-        }
+        var group = app.MapGroup("/api/tailor")
+            .RequireAuthorization();
 
         group.MapPost("/propose", async Task<Results<Ok<TailoringProposal>, BadRequest<string>, NotFound<string>>> (
                 TailorProposeRequest request,
