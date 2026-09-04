@@ -1,9 +1,0 @@
-﻿namespace CvTailr.Web.Configuration;
-
-public sealed class DownstreamApiOptions
-{
-    public const string SectionName = "DownstreamApi";
-
-    public string BaseUrl { get; set; } = string.Empty;
-    public string[] Scopes { get; set; } = Array.Empty<string>();
-}
