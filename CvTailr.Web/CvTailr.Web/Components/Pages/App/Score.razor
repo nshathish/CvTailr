@@ -1,0 +1,202 @@
+@page "/score"
+@rendermode InteractiveServer
+
+@inject ApiClient ApiClient
+@inject WorkflowStateService WorkflowState
+
+<PageTitle>Score</PageTitle>
+
+<div class="mx-auto max-w-3xl px-4 py-8 space-y-6">
+    <h1 class="text-2xl font-semibold text-slate-900">Match score</h1>
+
+    @if (WorkflowState.CurrentJd is null)
+    {
+        <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            You haven't parsed a job description yet this session.
+            <NavLink href="jd" class="font-medium text-indigo-600 hover:text-indigo-500">Paste a JD first</NavLink>.
+        </div>
+    }
+    else
+    {
+        @if (!hasIncomingScore)
+        {
+            <button
+                @onclick="ScoreAsync"
+                disabled="@isLoading"
+                class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
+                @(isLoading ? "Scoring..." : "Get My Score")
+            </button>
+
+            @if (isLoading)
+            {
+                <div class="flex items-center gap-2 text-sm text-slate-500">
+                    <svg class="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Scoring your CV against this JD via Azure AI Foundry — this may take a moment...</span>
+                </div>
+            }
+        }
+
+        @if (cvMissing)
+        {
+            <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                No CV found for your account yet.
+                <NavLink href="cv/upload" class="font-medium text-indigo-600 hover:text-indigo-500">Upload your CV first</NavLink>.
+            </div>
+        }
+
+        @if (errorMessage is not null)
+        {
+            <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                <p class="font-medium">Failed to score your CV.</p>
+                <p class="mt-1">@errorMessage</p>
+            </div>
+        }
+
+        @if (score is not null)
+        {
+            <div class="space-y-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="@GetScoreRingClass(score.OverallScorePercent) flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 text-xl font-bold">
+                        @score.OverallScorePercent%
+                    </div>
+                    <p class="text-sm text-slate-700">@score.Rationale</p>
+                </div>
+            </div>
+
+            @if (missingMustHaves.Count > 0)
+            {
+                <div class="space-y-2 rounded-md border border-red-300 bg-red-50 p-4">
+                    <h2 class="text-sm font-semibold text-red-900">Missing must-haves</h2>
+                    <div class="space-y-2">
+                        @foreach (var match in missingMustHaves)
+                        {
+                            <div class="rounded-md border border-red-200 bg-white p-3">
+                                <p class="text-sm font-medium text-slate-900">@match.Skill</p>
+                                @if (!string.IsNullOrWhiteSpace(match.GapNote))
+                                {
+                                    <p class="mt-1 text-xs text-slate-600">@match.GapNote</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="space-y-2">
+                <h2 class="text-sm font-medium text-slate-700">Requirement breakdown</h2>
+                <div class="space-y-2">
+                    @foreach (var match in score.RequirementMatches)
+                    {
+                        <div class="flex items-start gap-3 rounded-md border border-slate-100 p-3">
+                            <div class="flex shrink-0 flex-col items-start gap-1">
+                                <span class="@GetPriorityBadgeClass(GetPriority(match.RequirementId)) rounded-full px-2 py-0.5 text-xs font-medium">
+                                    @(GetPriority(match.RequirementId) == RequirementPriority.MustHave ? "Must have" : "Nice to have")
+                                </span>
+                                <span class="@GetMetBadgeClass(match.IsMet) rounded-full px-2 py-0.5 text-xs font-medium">
+                                    @(match.IsMet ? "Met" : "Not met")
+                                </span>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-slate-900">@match.Skill</p>
+                                <p class="text-xs text-slate-500">Confidence: @match.Confidence%</p>
+                                @if (!string.IsNullOrWhiteSpace(match.SupportingEvidence))
+                                {
+                                    <p class="mt-1 text-xs text-slate-600">@match.SupportingEvidence</p>
+                                }
+                                @if (!match.IsMet && !string.IsNullOrWhiteSpace(match.GapNote))
+                                {
+                                    <p class="mt-1 text-xs text-slate-600">@match.GapNote</p>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool isLoading;
+    private bool cvMissing;
+    private string? errorMessage;
+    private MatchScoreResult? score;
+    private List<RequirementMatch> missingMustHaves = new();
+    private bool hasIncomingScore;
+
+    protected override void OnInitialized()
+    {
+        // Arrived via the JD page's "Score my CV against this JD" CTA, which already
+        // did the scoring call — show the result immediately, skip the button entirely.
+        if (WorkflowState.CurrentScore is not null)
+        {
+            hasIncomingScore = true;
+            score = WorkflowState.CurrentScore;
+            missingMustHaves = score.RequirementMatches
+                .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
+                .ToList();
+        }
+    }
+
+    private async Task ScoreAsync()
+    {
+        if (WorkflowState.CurrentJd is null)
+            return;
+
+        isLoading = true;
+        errorMessage = null;
+        cvMissing = false;
+        score = null;
+        missingMustHaves = new();
+
+        try
+        {
+            var outcome = await ApiClient.GetScoreAsync(WorkflowState.CurrentJd);
+            if (outcome.CvMissing)
+            {
+                cvMissing = true;
+            }
+            else
+            {
+                score = outcome.Score;
+                WorkflowState.CurrentScore = score;
+                missingMustHaves = score!.RequirementMatches
+                    .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private RequirementPriority GetPriority(string requirementId) =>
+        WorkflowState.CurrentJd?.Requirements.FirstOrDefault(r => r.Id == requirementId)?.Priority
+            ?? RequirementPriority.NiceToHave;
+
+    private static string GetPriorityBadgeClass(RequirementPriority priority) => priority switch
+    {
+        RequirementPriority.MustHave => "bg-red-100 text-red-800",
+        RequirementPriority.NiceToHave => "bg-emerald-100 text-emerald-800",
+        _ => "bg-slate-100 text-slate-800"
+    };
+
+    private static string GetMetBadgeClass(bool isMet) => isMet
+        ? "bg-emerald-100 text-emerald-800"
+        : "bg-slate-200 text-slate-700";
+
+    private static string GetScoreRingClass(int scorePercent) => scorePercent switch
+    {
+        >= 80 => "border-emerald-500 text-emerald-700",
+        >= 50 => "border-amber-500 text-amber-700",
+        _ => "border-red-500 text-red-700"
+    };
+}
