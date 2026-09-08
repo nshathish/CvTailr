@@ -13,6 +13,7 @@ never commit real values there. Configure real values locally with
 ```
 dotnet user-secrets set "Foundry:Endpoint" "https://<your-foundry-resource>.services.ai.azure.com"
 dotnet user-secrets set "Foundry:ApiKey" "<your-foundry-key>"
+dotnet user-secrets set "Foundry:CvParsingDeploymentName" "<cv-deployment-name>"
 dotnet user-secrets set "Foundry:JdParsingDeploymentName" "<deployment-name>"
 dotnet user-secrets set "EntraId:Authority" "https://login.microsoftonline.com/<tenant-id>/v2.0"
 dotnet user-secrets set "EntraId:Audience" "<api-app-registration-client-id>"
