@@ -1,7 +1,9 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Jd;
+using CvTailr.Shared.Scoring;
 using CvTailr.Web.Configuration;
 using Microsoft.Identity.Abstractions;
 
@@ -67,6 +69,64 @@ public class ApiClient(IDownstreamApi downstreamApi)
         var result = await response.Content.ReadFromJsonAsync<CvDocument>(JsonOptions, ct);
         return result ?? throw new ApiClientException("POST /api/cv/parse returned an empty response body.");
     }
+
+    public async Task<CvDocument?> GetCurrentCvAsync(CancellationToken ct = default)
+    {
+        using var response = await downstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "GET";
+                options.RelativePath = "api/cv/current";
+            },
+            cancellationToken: ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            throw new ApiClientException(
+                $"GET /api/cv/current failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<CvDocument>(JsonOptions, ct);
+        return result ?? throw new ApiClientException("GET /api/cv/current returned an empty response body.");
+    }
+
+    // The Api's /api/score returns 404 when the user hasn't uploaded a CV yet — an
+    // expected "not ready" state, not a failure, so callers get a distinct signal
+    // (ScoreOutcome.CvMissing) rather than an ApiClientException to branch on.
+    public async Task<ScoreOutcome> GetScoreAsync(JdRequirements jdRequirements, CancellationToken ct = default)
+    {
+        using var response = await downstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "POST";
+                options.RelativePath = "api/score";
+            },
+            content: JsonContent.Create(new { jdRequirements }, options: JsonOptions),
+            cancellationToken: ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return new ScoreOutcome(Score: null, CvMissing: true);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            throw new ApiClientException(
+                $"POST /api/score failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<MatchScoreResult>(JsonOptions, ct);
+        return new ScoreOutcome(
+            Score: result ?? throw new ApiClientException("POST /api/score returned an empty response body."),
+            CvMissing: false);
+    }
 }
 
 public class ApiClientException(string message) : Exception(message);
+
+public record ScoreOutcome(MatchScoreResult? Score, bool CvMissing);

@@ -1,0 +1,10 @@
+root = true
+
+# Foundry structured-completion DTOs (TailoringService, DrillService, ScoringService) are
+# private nested classes only ever instantiated by System.Text.Json via reflection inside
+# FoundryClient.GetStructuredCompletionAsync<TResult>. CA1812 ("never instantiated") is a
+# syntactic check that can't see that usage and false-positives on every one of them.
+# (CvParsingService's equivalent DTOs dodge this by being `protected` instead — see the
+# comment there — so it's not listed here.)
+[{TailoringService.cs,DrillService.cs,ScoringService.cs}]
+dotnet_diagnostic.CA1812.severity = none

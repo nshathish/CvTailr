@@ -11,7 +11,7 @@ public static class CvEndpoints
         var group = app.MapGroup("/api/cv")
             .RequireAuthorization();
 
-        group.MapPost("/upload", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
+        group.MapPost("/parse", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
                 UploadCvRequest request,
                 ICvParsingService cvParsingService,
                 ICurrentUserContext currentUserContext,
