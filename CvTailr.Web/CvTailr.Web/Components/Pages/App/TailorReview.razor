@@ -1,0 +1,266 @@
+@page "/jobs/{JobId}/tailor"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject ApiClient ApiClient
+@inject WorkflowStateService WorkflowState
+
+<PageTitle>Tailor CV</PageTitle>
+
+<div class="mx-auto max-w-3xl space-y-6 px-4 py-8 pb-24">
+    <h1 class="text-2xl font-semibold text-slate-900">Tailor your CV</h1>
+
+    @if (isLoading)
+    {
+        <p class="text-sm text-slate-500">Loading tailoring proposal...</p>
+    }
+    else if (loadErrorMessage is not null)
+    {
+        <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+            <p class="font-medium">Couldn't load a tailoring proposal.</p>
+            <p class="mt-1">@loadErrorMessage</p>
+        </div>
+    }
+    else if (applyResult is not null)
+    {
+        <div class="rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+            <p class="font-medium">
+                Applied @appliedCount change@(appliedCount == 1 ? "" : "s")@(appliedProvisionalCount > 0
+                    ? $" — {appliedProvisionalCount} new item{(appliedProvisionalCount == 1 ? "" : "s")} now marked provisional and added to your interview drilling queue."
+                    : ".")
+            </p>
+            @if (applyResult.Warnings.Count > 0)
+            {
+                <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-emerald-700">
+                    @foreach (var warning in applyResult.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <div class="flex items-center gap-4">
+            <NavLink href="dashboard"
+               class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
+                Back to Dashboard
+            </NavLink>
+            <NavLink href="@($"score?jobId={JobId}")" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                View updated score
+            </NavLink>
+        </div>
+    }
+    else if (proposal is not null)
+    {
+        <p class="text-sm text-slate-600">
+            Review each proposed change and check the ones you want to apply — nothing is added or
+            changed unless you approve it individually.
+        </p>
+
+        @if (proposal.BulletRewrites.Count == 0 && proposal.NewBullets.Count == 0 && proposal.NewSkills.Count == 0)
+        {
+            <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                No tailoring changes were proposed for this job.
+            </div>
+        }
+        else
+        {
+            @if (proposal.BulletRewrites.Count > 0)
+            {
+                <section class="space-y-3">
+                    <h2 class="text-sm font-semibold text-slate-900">Bullet rewrites</h2>
+                    @foreach (var rewrite in proposal.BulletRewrites)
+                    {
+                        <label class="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+                            <input type="checkbox"
+                                   checked="@approvedRewriteIds.Contains(rewrite.Id)"
+                                   @onchange="e => ToggleRewrite(rewrite.Id, (bool)e.Value!)"
+                                   class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div class="min-w-0 flex-1 space-y-2">
+                                @if (!string.IsNullOrWhiteSpace(rewrite.ProposedLanguage))
+                                {
+                                    <span class="inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">→ @rewrite.ProposedLanguage</span>
+                                }
+                                <p class="text-sm text-slate-400 line-through">@rewrite.CurrentText</p>
+                                <p class="text-sm font-medium text-slate-900">@rewrite.ProposedText</p>
+                                <p class="text-xs text-slate-500">@rewrite.Reason</p>
+                            </div>
+                        </label>
+                    }
+                </section>
+            }
+
+            @if (proposal.NewBullets.Count > 0)
+            {
+                <section class="space-y-3">
+                    <h2 class="text-sm font-semibold text-slate-900">New bullets</h2>
+                    @foreach (var bullet in proposal.NewBullets)
+                    {
+                        <label class="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                            <input type="checkbox"
+                                   checked="@approvedNewBulletIds.Contains(bullet.Id)"
+                                   @onchange="e => ToggleNewBullet(bullet.Id, (bool)e.Value!)"
+                                   class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div class="min-w-0 flex-1 space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800">New</span>
+                                    @if (!string.IsNullOrWhiteSpace(bullet.ProposedLanguage))
+                                    {
+                                        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">→ @bullet.ProposedLanguage</span>
+                                    }
+                                </div>
+                                <p class="text-sm font-medium text-slate-900">@bullet.ProposedText</p>
+                                <p class="text-xs text-slate-500">@bullet.Reason</p>
+                            </div>
+                        </label>
+                    }
+                </section>
+            }
+
+            @if (proposal.NewSkills.Count > 0)
+            {
+                <section class="space-y-3">
+                    <h2 class="text-sm font-semibold text-slate-900">New skills</h2>
+                    @foreach (var skill in proposal.NewSkills)
+                    {
+                        <label class="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                            <input type="checkbox"
+                                   checked="@approvedNewSkillIds.Contains(skill.Id)"
+                                   @onchange="e => ToggleNewSkill(skill.Id, (bool)e.Value!)"
+                                   class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div class="min-w-0 flex-1 space-y-2">
+                                <span class="inline-block rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-800">New</span>
+                                <p class="text-sm font-medium text-slate-900">@skill.SkillName</p>
+                                <p class="text-xs text-slate-500">@skill.Reason</p>
+                            </div>
+                        </label>
+                    }
+                </section>
+            }
+
+            <div class="sticky bottom-0 flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur">
+                <p class="text-sm font-medium text-slate-700">@SelectedCount of @TotalCount changes selected</p>
+                <button
+                    @onclick="ApplyAsync"
+                    disabled="@(SelectedCount == 0 || isApplying)"
+                    class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
+                    @(isApplying ? "Applying..." : "Apply selected changes")
+                </button>
+            </div>
+
+            @if (isApplying)
+            {
+                <div class="flex items-center gap-2 text-sm text-slate-500">
+                    <svg class="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Applying your approved changes...</span>
+                </div>
+            }
+
+            @if (applyErrorMessage is not null)
+            {
+                <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                    <p class="font-medium">Failed to apply changes.</p>
+                    <p class="mt-1">@applyErrorMessage</p>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string JobId { get; set; } = string.Empty;
+
+    private bool isLoading = true;
+    private string? loadErrorMessage;
+    private TailoringProposal? proposal;
+
+    private readonly HashSet<string> approvedRewriteIds = new();
+    private readonly HashSet<string> approvedNewBulletIds = new();
+    private readonly HashSet<string> approvedNewSkillIds = new();
+
+    private bool isApplying;
+    private string? applyErrorMessage;
+    private TailorApplyResult? applyResult;
+    private int appliedCount;
+    private int appliedProvisionalCount;
+
+    private int SelectedCount => approvedRewriteIds.Count + approvedNewBulletIds.Count + approvedNewSkillIds.Count;
+
+    private int TotalCount => (proposal?.BulletRewrites.Count ?? 0)
+        + (proposal?.NewBullets.Count ?? 0)
+        + (proposal?.NewSkills.Count ?? 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            proposal = await ApiClient.ProposeTailoringAsync(JobId);
+        }
+        catch (Exception ex)
+        {
+            loadErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ToggleRewrite(string id, bool isChecked)
+    {
+        if (isChecked) approvedRewriteIds.Add(id); else approvedRewriteIds.Remove(id);
+    }
+
+    private void ToggleNewBullet(string id, bool isChecked)
+    {
+        if (isChecked) approvedNewBulletIds.Add(id); else approvedNewBulletIds.Remove(id);
+    }
+
+    private void ToggleNewSkill(string id, bool isChecked)
+    {
+        if (isChecked) approvedNewSkillIds.Add(id); else approvedNewSkillIds.Remove(id);
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (proposal is null || SelectedCount == 0)
+            return;
+
+        isApplying = true;
+        applyErrorMessage = null;
+
+        try
+        {
+            var approvedRewrites = proposal.BulletRewrites.Where(r => approvedRewriteIds.Contains(r.Id)).ToList();
+            var approvedNewBullets = proposal.NewBullets.Where(b => approvedNewBulletIds.Contains(b.Id)).ToList();
+            var approvedNewSkills = proposal.NewSkills.Where(s => approvedNewSkillIds.Contains(s.Id)).ToList();
+
+            var result = await ApiClient.ApplyTailoringAsync(
+                JobId,
+                approvedRewriteIds.ToList(),
+                approvedRewrites,
+                approvedNewBullets,
+                approvedNewSkills);
+
+            appliedCount = approvedRewrites.Count + approvedNewBullets.Count + approvedNewSkills.Count;
+            appliedProvisionalCount = approvedNewBullets.Count + approvedNewSkills.Count;
+            applyResult = result;
+
+            if (WorkflowState.CurrentJob?.Id == JobId)
+            {
+                WorkflowState.CurrentJob = result.Job;
+            }
+        }
+        catch (Exception ex)
+        {
+            applyErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isApplying = false;
+        }
+    }
+}

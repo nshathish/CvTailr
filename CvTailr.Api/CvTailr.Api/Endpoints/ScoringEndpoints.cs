@@ -1,7 +1,6 @@
 using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
-using CvTailr.Shared.Jd;
-using CvTailr.Shared.Scoring;
+using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CvTailr.Api.Endpoints;
@@ -11,32 +10,40 @@ public static class ScoringEndpoints
     public static void MapScoringEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/score")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithTags("Score")
+            .WithDescription("Scores the current user's persisted CV against a Job's parsed requirements.");
 
-        group.MapPost("/", async Task<Results<Ok<MatchScoreResult>, BadRequest<string>, NotFound<string>>> (
+        group.MapPost("/", async Task<Results<Ok<Job>, BadRequest<string>, NotFound<string>>> (
                 ScoreRequest request,
                 IScoringService scoringService,
                 ICvRepository cvRepository,
+                IJobService jobService,
                 ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
-                if (request.JdRequirements is null)
-                    return TypedResults.BadRequest("jdRequirements is required.");
-
-                if (request.JdRequirements.Requirements.Count == 0)
-                    return TypedResults.BadRequest("jdRequirements.requirements must be non-empty.");
+                if (string.IsNullOrWhiteSpace(request.JobId))
+                    return TypedResults.BadRequest("jobId is required.");
 
                 var userId = currentUserContext.GetUserId();
+
+                var job = await jobService.GetByIdAsync(userId, request.JobId, cancellationToken);
+                if (job is null)
+                    return TypedResults.NotFound($"Job '{request.JobId}' was not found for this user.");
+
                 var cvDocument = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
                 if (cvDocument is null)
                     return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
 
-                var result = await scoringService.ScoreAsync(request.JdRequirements, cvDocument, cancellationToken);
-                return TypedResults.Ok(result);
+                var result = await scoringService.ScoreAsync(job.JdRequirements, cvDocument, cancellationToken);
+                var updatedJob = await jobService.AttachScoreAsync(userId, request.JobId, result, cancellationToken);
+                return TypedResults.Ok(updatedJob);
             })
             .WithName("ScoreCv")
-            .WithSummary("Scores the current user's persisted CvDocument against JdRequirements and returns a MatchScoreResult.");
+            .WithSummary("Score CV")
+            .WithDescription(
+                "Scores the current user's persisted CvDocument against a Job's JdRequirements, attaches the result to the Job, and returns it.");
     }
 }
 
-public record ScoreRequest(JdRequirements? JdRequirements);
+public record ScoreRequest(string? JobId);

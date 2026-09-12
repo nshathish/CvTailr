@@ -1,0 +1,50 @@
+@* Numbered-circle step indicator connected by a line. The current and completed
+   steps are filled with the accent color; upcoming steps are muted/outlined. *@
+
+<div class="flex items-start">
+    @for (var step = 1; step <= Steps.Count; step++)
+    {
+        <div class="flex items-start @(step < Steps.Count ? "flex-1" : "")">
+            <div class="flex flex-col items-center gap-2">
+                <div class="@GetCircleClass(step) flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors">
+                    @if (step < CurrentStep)
+                    {
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                    }
+                    else
+                    {
+                        @step
+                    }
+                </div>
+                <span class="@GetLabelClass(step) whitespace-nowrap text-xs font-medium">@Steps[step - 1]</span>
+            </div>
+
+            @if (step < Steps.Count)
+            {
+                <div class="@GetLineClass(step) mx-3 mt-4 h-0.5 flex-1"></div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public int CurrentStep { get; set; }
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Steps { get; set; } = Array.Empty<string>();
+
+    private string GetCircleClass(int step) => step <= CurrentStep
+        ? "border-indigo-600 bg-indigo-600 text-white"
+        : "border-slate-300 bg-white text-slate-400";
+
+    private string GetLabelClass(int step) => step <= CurrentStep
+        ? "text-indigo-600"
+        : "text-slate-400";
+
+    private string GetLineClass(int step) => step < CurrentStep
+        ? "bg-indigo-600"
+        : "bg-slate-200";
+}

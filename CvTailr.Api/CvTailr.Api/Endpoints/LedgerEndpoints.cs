@@ -10,7 +10,10 @@ public static class LedgerEndpoints
     public static void MapLedgerEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/ledger")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithTags("Ledger")
+            .WithDescription(
+                "Tracks provisional CV content (bullets/skills without evidence) and gates status changes behind explicit user confirmation — never automatic.");
 
         group.MapPost("/register", async Task<Results<Ok<List<LedgerEntry>>, BadRequest<string>>> (
                 RegisterLedgerRequest request,
@@ -24,7 +27,8 @@ public static class LedgerEndpoints
                 return TypedResults.Ok(entries);
             })
             .WithName("RegisterProvisionalLedgerItems")
-            .WithSummary("Registers ledger entries for provisional CV bullets/skills that don't already have one.");
+            .WithSummary("Register Provisional Ledger Items")
+            .WithDescription("Registers ledger entries for provisional CV bullets/skills that don't already have one.");
 
         group.MapGet("/{cvId}", async Task<Ok<List<LedgerEntry>>> (
                 string cvId,
@@ -34,7 +38,9 @@ public static class LedgerEndpoints
                 var entries = await ledgerService.GetByCvIdAsync(cvId, cancellationToken);
                 return TypedResults.Ok(entries);
             })
-            .WithName("GetLedgerEntriesForCv");
+            .WithName("GetLedgerEntriesForCv")
+            .WithSummary("Get Ledger Entries for CV")
+            .WithDescription("Returns all ledger entries associated with the specified CV.");
 
         group.MapPost("/{entryId}/drill-attempt", async Task<Results<Ok<LedgerEntry>, NotFound<string>>> (
                 string entryId,
@@ -59,7 +65,9 @@ public static class LedgerEndpoints
                     return TypedResults.NotFound(ex.Message);
                 }
             })
-            .WithName("RecordLedgerDrillAttempt");
+            .WithName("RecordLedgerDrillAttempt")
+            .WithSummary("Record Ledger Drill Attempt")
+            .WithDescription("Records a drill attempt for a ledger entry and returns the updated entry.");
 
         group.MapGet("/{entryId}/review", async Task<Results<Ok<LedgerReviewRecommendation>, NotFound<string>>> (
                 string entryId,
@@ -77,7 +85,8 @@ public static class LedgerEndpoints
                 }
             })
             .WithName("ReviewLedgerEntry")
-            .WithSummary("Read-only downgrade/promotion recommendation. Never mutates LedgerEntry.Status.");
+            .WithSummary("Review Ledger Entry")
+            .WithDescription("Read-only downgrade/promotion recommendation. Never mutates LedgerEntry.Status.");
 
         group.MapPost("/{entryId}/confirm-status", async Task<Results<Ok<LedgerEntry>, NotFound<string>>> (
                 string entryId,
@@ -87,7 +96,8 @@ public static class LedgerEndpoints
             {
                 try
                 {
-                    var entry = await ledgerService.ConfirmStatusChangeAsync(entryId, request.NewStatus, cancellationToken);
+                    var entry = await ledgerService.ConfirmStatusChangeAsync(entryId, request.NewStatus,
+                        cancellationToken);
                     return TypedResults.Ok(entry);
                 }
                 catch (KeyNotFoundException ex)
@@ -96,7 +106,9 @@ public static class LedgerEndpoints
                 }
             })
             .WithName("ConfirmLedgerStatusChange")
-            .WithSummary("Explicitly confirms a ledger status change. Must only be called after user confirmation — never automatically.");
+            .WithSummary("Confirm Ledger Status Change")
+            .WithDescription(
+                "Explicitly confirms a ledger status change. Must only be called after user confirmation — never automatically.");
     }
 }
 

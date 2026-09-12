@@ -12,7 +12,10 @@ public static class DrillEndpoints
     public static void MapDrillEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/drill")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithTags("Drill")
+            .WithDescription(
+                "Generates interview drill questions weighted toward provisional/gap items and evaluates answers, feeding weak/fail outcomes back into the ledger.");
 
         group.MapPost("/question", async Task<Results<Ok<DrillQuestion>, BadRequest<string>, NotFound<string>>> (
                 GenerateQuestionRequest request,
@@ -38,7 +41,9 @@ public static class DrillEndpoints
                 return TypedResults.Ok(question);
             })
             .WithName("GenerateDrillQuestion")
-            .WithSummary("Generates one interview drill question for the current user's CV, weighted toward provisional/gap items.");
+            .WithSummary("Generate Drill Question")
+            .WithDescription(
+                "Generates one interview drill question for the current user's CV, weighted toward provisional/gap items.");
 
         group.MapPost("/answer", async Task<Results<Ok<DrillAnswerEvaluation>, BadRequest<string>>> (
                 EvaluateAnswerRequest request,
@@ -55,7 +60,9 @@ public static class DrillEndpoints
                 return TypedResults.Ok(evaluation);
             })
             .WithName("EvaluateDrillAnswer")
-            .WithSummary("Evaluates a typed or transcribed drill answer and records the outcome to the ledger when applicable.");
+            .WithSummary("Evaluate Drill Answer")
+            .WithDescription(
+                "Evaluates a typed or transcribed drill answer and records the outcome to the ledger when applicable.");
     }
 }
 

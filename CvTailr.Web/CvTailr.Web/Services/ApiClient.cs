@@ -2,8 +2,8 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CvTailr.Shared.Cv;
-using CvTailr.Shared.Jd;
-using CvTailr.Shared.Scoring;
+using CvTailr.Shared.Jobs;
+using CvTailr.Shared.Tailoring;
 using CvTailr.Web.Configuration;
 using Microsoft.Identity.Abstractions;
 
@@ -24,7 +24,7 @@ public class ApiClient(IDownstreamApi downstreamApi)
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public async Task<JdRequirements> ParseJdAsync(string jdText, CancellationToken ct = default)
+    public async Task<Job> ParseJdAsync(string jdText, CancellationToken ct = default)
     {
         using var response = await downstreamApi.CallApiForUserAsync(
             ServiceName,
@@ -43,7 +43,7 @@ public class ApiClient(IDownstreamApi downstreamApi)
                 $"POST /api/jd/parse failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
         }
 
-        var result = await response.Content.ReadFromJsonAsync<JdRequirements>(JsonOptions, ct);
+        var result = await response.Content.ReadFromJsonAsync<Job>(JsonOptions, ct);
         return result ?? throw new ApiClientException("POST /api/jd/parse returned an empty response body.");
     }
 
@@ -95,10 +95,58 @@ public class ApiClient(IDownstreamApi downstreamApi)
         return result ?? throw new ApiClientException("GET /api/cv/current returned an empty response body.");
     }
 
-    // The Api's /api/score returns 404 when the user hasn't uploaded a CV yet — an
+    public async Task<Job?> GetJobByIdAsync(string jobId, CancellationToken ct = default)
+    {
+        using var response = await downstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "GET";
+                options.RelativePath = $"api/jobs/{Uri.EscapeDataString(jobId)}";
+            },
+            cancellationToken: ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            throw new ApiClientException(
+                $"GET /api/jobs/{jobId} failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<Job>(JsonOptions, ct);
+        return result ?? throw new ApiClientException($"GET /api/jobs/{jobId} returned an empty response body.");
+    }
+
+    public async Task<List<Job>> GetJobsAsync(CancellationToken ct = default)
+    {
+        using var response = await downstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "GET";
+                options.RelativePath = "api/jobs";
+            },
+            cancellationToken: ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            throw new ApiClientException(
+                $"GET /api/jobs failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<List<Job>>(JsonOptions, ct);
+        return result ?? throw new ApiClientException("GET /api/jobs returned an empty response body.");
+    }
+
+    // The Api's /api/score returns 404 both when the user hasn't uploaded a CV yet and
+    // when the given jobId doesn't resolve to a persisted Job — either way it's an
     // expected "not ready" state, not a failure, so callers get a distinct signal
     // (ScoreOutcome.CvMissing) rather than an ApiClientException to branch on.
-    public async Task<ScoreOutcome> GetScoreAsync(JdRequirements jdRequirements, CancellationToken ct = default)
+    public async Task<ScoreOutcome> GetScoreAsync(string jobId, CancellationToken ct = default)
     {
         using var response = await downstreamApi.CallApiForUserAsync(
             ServiceName,
@@ -107,11 +155,11 @@ public class ApiClient(IDownstreamApi downstreamApi)
                 options.HttpMethod = "POST";
                 options.RelativePath = "api/score";
             },
-            content: JsonContent.Create(new { jdRequirements }, options: JsonOptions),
+            content: JsonContent.Create(new { jobId }, options: JsonOptions),
             cancellationToken: ct);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
-            return new ScoreOutcome(Score: null, CvMissing: true);
+            return new ScoreOutcome(Job: null, CvMissing: true);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -120,13 +168,80 @@ public class ApiClient(IDownstreamApi downstreamApi)
                 $"POST /api/score failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
         }
 
-        var result = await response.Content.ReadFromJsonAsync<MatchScoreResult>(JsonOptions, ct);
+        var result = await response.Content.ReadFromJsonAsync<Job>(JsonOptions, ct);
         return new ScoreOutcome(
-            Score: result ?? throw new ApiClientException("POST /api/score returned an empty response body."),
+            Job: result ?? throw new ApiClientException("POST /api/score returned an empty response body."),
             CvMissing: false);
+    }
+    public async Task<TailoringProposal> ProposeTailoringAsync(string jobId, CancellationToken ct = default)
+    {
+        using var response = await downstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "POST";
+                options.RelativePath = "api/tailor/propose";
+            },
+            content: JsonContent.Create(new { jobId }, options: JsonOptions),
+            cancellationToken: ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            throw new ApiClientException(
+                $"POST /api/tailor/propose failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<TailoringProposal>(JsonOptions, ct);
+        return result ?? throw new ApiClientException("POST /api/tailor/propose returned an empty response body.");
+    }
+
+    // Mirrors the Api's TailorApplyRequest shape exactly: ApprovedBulletRewriteIds says which
+    // rewrites to apply, while ProposedBulletRewrites carries the full proposal objects the Api
+    // needs to look up by that id — sending only the approved subset for both is sufficient (the
+    // Api intersects by id) and keeps the request smaller. New bullets/skills carry no separate
+    // id list since the client only ever sends the ones it's approving.
+    public async Task<TailorApplyResult> ApplyTailoringAsync(
+        string jobId,
+        List<string> approvedBulletRewriteIds,
+        List<BulletRewriteProposal> approvedRewrites,
+        List<NewBulletProposal> approvedNewBullets,
+        List<NewSkillProposal> approvedNewSkills,
+        CancellationToken ct = default)
+    {
+        using var response = await downstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "POST";
+                options.RelativePath = "api/tailor/apply";
+            },
+            content: JsonContent.Create(
+                new
+                {
+                    jobId,
+                    approvedBulletRewriteIds,
+                    proposedBulletRewrites = approvedRewrites,
+                    approvedNewBullets,
+                    approvedNewSkills
+                },
+                options: JsonOptions),
+            cancellationToken: ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            throw new ApiClientException(
+                $"POST /api/tailor/apply failed with status {(int)response.StatusCode} {response.StatusCode}: {errorContent}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<TailorApplyResult>(JsonOptions, ct);
+        return result ?? throw new ApiClientException("POST /api/tailor/apply returned an empty response body.");
     }
 }
 
 public class ApiClientException(string message) : Exception(message);
 
-public record ScoreOutcome(MatchScoreResult? Score, bool CvMissing);
+public record ScoreOutcome(Job? Job, bool CvMissing);
+
+public record TailorApplyResult(CvDocument CvDocument, Job Job, List<string> Warnings);

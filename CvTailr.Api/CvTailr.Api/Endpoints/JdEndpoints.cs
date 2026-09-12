@@ -1,5 +1,5 @@
 using CvTailr.Api.Services.Interfaces;
-using CvTailr.Shared.Jd;
+using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CvTailr.Api.Endpoints;
@@ -9,21 +9,28 @@ public static class JdEndpoints
     public static void MapJdEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/jd")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithTags("Jd")
+            .WithDescription("Parses raw job description text into structured requirements via Azure AI Foundry.");
 
-        group.MapPost("/parse", async Task<Results<Ok<JdRequirements>, BadRequest<string>>> (
+        group.MapPost("/parse", async Task<Results<Ok<Job>, BadRequest<string>>> (
                 ParseJdRequest request,
                 IJdParsingService jdParsingService,
+                IJobService jobService,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
                 if (string.IsNullOrWhiteSpace(request.JdText))
                     return TypedResults.BadRequest("jdText is required.");
 
-                var result = await jdParsingService.ParseAsync(request.JdText, cancellationToken);
-                return TypedResults.Ok(result);
+                var userId = currentUserContext.GetUserId();
+                var jdRequirements = await jdParsingService.ParseAsync(request.JdText, cancellationToken);
+                var job = await jobService.CreateFromJdAsync(userId, jdRequirements, cancellationToken);
+                return TypedResults.Ok(job);
             })
             .WithName("ParseJd")
-            .WithSummary("Parses raw job description text into structured requirements.");
+            .WithSummary("Parse JD")
+            .WithDescription("Parses raw job description text into structured requirements and persists them as a new Job.");
     }
 }
 

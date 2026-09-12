@@ -16,4 +16,7 @@ public class CosmosOptions
 
     /// <summary>Persisted CvDocuments container, partition key /userId.</summary>
     public string CvContainerName { get; set; } = string.Empty;
+
+    /// <summary>Persisted Jobs container, partition key /userId.</summary>
+    public string JobContainerName { get; set; } = string.Empty;
 }

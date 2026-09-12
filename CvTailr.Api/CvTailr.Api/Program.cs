@@ -74,6 +74,8 @@ builder.Services.AddScoped<ILedgerRepository, CosmosLedgerRepository>();
 builder.Services.AddScoped<ILedgerService, LedgerService>();
 builder.Services.AddScoped<IDrillService, DrillService>();
 builder.Services.AddScoped<ICvRepository, CosmosCvRepository>();
+builder.Services.AddScoped<IJobRepository, CosmosJobRepository>();
+builder.Services.AddScoped<IJobService, JobService>();
 
 var app = builder.Build();
 
@@ -85,6 +87,7 @@ using (var startupScope = app.Services.CreateScope())
     var database = await cosmosClient.CreateDatabaseIfNotExistsAsync(cosmosOptions.DatabaseName);
     await database.Database.CreateContainerIfNotExistsAsync(cosmosOptions.ContainerName, "/cvId");
     await database.Database.CreateContainerIfNotExistsAsync(cosmosOptions.CvContainerName, "/userId");
+    await database.Database.CreateContainerIfNotExistsAsync(cosmosOptions.JobContainerName, "/userId");
 }
 
 if (app.Environment.IsDevelopment())
@@ -110,5 +113,6 @@ app.MapScoringEndpoints();
 app.MapTailoringEndpoints();
 app.MapLedgerEndpoints();
 app.MapDrillEndpoints();
+app.MapJobEndpoints();
 
 app.Run();

@@ -24,53 +24,54 @@ public class TailoringService(
         Converters = { new JsonStringEnumConverter() }
     };
 
-    private const string SystemPrompt = """
-                                        You are a CV tailoring assistant. You will be given a JSON object describing a
-                                        candidate's CV and a job description, with these properties:
-                                        - "Bullets": a flat list of the candidate's existing CV bullets, each
-                                          { RoleId, BulletId, OriginalText, Language }. Company names and dates are
-                                          deliberately NOT included in this data — you have no access to them and must
-                                          never invent, infer, or reference one in any field you return.
-                                        - "ExistingSkills": skill names already listed on the CV.
-                                        - "JdRequirements": the job description's requirements (Skill, Priority,
-                                          YearsRequired, Notes).
-                                        - "EmphasizedLanguages": languages (drawn only from Python, C#, TypeScript, Java)
-                                          that the job description emphasizes.
-                                        - "GapsToAddress": skill names identified as gaps between the CV and the job
-                                          description.
+    private const string SystemPrompt =
+        """
+        You are a CV tailoring assistant. You will be given a JSON object describing a
+        candidate's CV and a job description, with these properties:
+        - "Bullets": a flat list of the candidate's existing CV bullets, each
+          { RoleId, BulletId, OriginalText, Language }. Company names and dates are
+          deliberately NOT included in this data — you have no access to them and must
+          never invent, infer, or reference one in any field you return.
+        - "ExistingSkills": skill names already listed on the CV.
+        - "JdRequirements": the job description's requirements (Skill, Priority,
+          YearsRequired, Notes).
+        - "EmphasizedLanguages": languages (drawn only from Python, C#, TypeScript, Java)
+          that the job description emphasizes.
+        - "GapsToAddress": skill names identified as gaps between the CV and the job
+          description.
 
-                                        Propose CV tailoring changes and return a JSON object matching exactly this shape:
-                                        {
-                                          "BulletRewrites": [
-                                            { "RoleId": string, "BulletId": string, "ProposedText": string, "ProposedLanguage": string | null, "Reason": string }
-                                          ],
-                                          "NewBullets": [
-                                            { "RoleId": string, "ProposedText": string, "ProposedLanguage": string | null, "Reason": string }
-                                          ],
-                                          "NewSkills": [
-                                            { "SkillName": string, "Reason": string }
-                                          ]
-                                        }
+        Propose CV tailoring changes and return a JSON object matching exactly this shape:
+        {
+          "BulletRewrites": [
+            { "RoleId": string, "BulletId": string, "ProposedText": string, "ProposedLanguage": string | null, "Reason": string }
+          ],
+          "NewBullets": [
+            { "RoleId": string, "ProposedText": string, "ProposedLanguage": string | null, "Reason": string }
+          ],
+          "NewSkills": [
+            { "SkillName": string, "Reason": string }
+          ]
+        }
 
-                                        Rules:
-                                        - Every RoleId/BulletId you return MUST be copied exactly from the input
-                                          Bullets list — never invent one.
-                                        - Only set "ProposedLanguage" on a bullet rewrite when proposing a genuine
-                                          language substitution: the bullet's current Language must be exactly one of
-                                          Python, C#, TypeScript, or Java, AND EmphasizedLanguages must contain a
-                                          DIFFERENT one of those same four languages, AND ProposedText must be reworded
-                                          to reflect that new language. Leave ProposedLanguage null for ordinary wording
-                                          improvements that don't change the bullet's language.
-                                        - Never propose a language substitution to or from any language outside
-                                          Python/C#/TypeScript/Java, and never propose one unless EmphasizedLanguages
-                                          justifies it.
-                                        - Only propose NewBullets/NewSkills that plausibly address an item in
-                                          GapsToAddress and are a believable extension of the candidate's actual
-                                          experience — never fabricate unrelated experience.
-                                        - Do not propose a new skill whose name already appears in ExistingSkills.
-                                        - Never mention, infer, or reference a company name or a date anywhere in your
-                                          response.
-                                        """;
+        Rules:
+        - Every RoleId/BulletId you return MUST be copied exactly from the input
+          Bullets list — never invent one.
+        - Only set "ProposedLanguage" on a bullet rewrite when proposing a genuine
+          language substitution: the bullet's current Language must be exactly one of
+          Python, C#, TypeScript, or Java, AND EmphasizedLanguages must contain a
+          DIFFERENT one of those same four languages, AND ProposedText must be reworded
+          to reflect that new language. Leave ProposedLanguage null for ordinary wording
+          improvements that don't change the bullet's language.
+        - Never propose a language substitution to or from any language outside
+          Python/C#/TypeScript/Java, and never propose one unless EmphasizedLanguages
+          justifies it.
+        - Only propose NewBullets/NewSkills that plausibly address an item in
+          GapsToAddress and are a believable extension of the candidate's actual
+          experience — never fabricate unrelated experience.
+        - Do not propose a new skill whose name already appears in ExistingSkills.
+        - Never mention, infer, or reference a company name or a date anywhere in your
+          response.
+        """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
@@ -203,10 +204,11 @@ public class TailoringService(
         var approvedRewriteIds = approvedBulletRewriteIds.ToHashSet();
         foreach (var rewrite in approvedRewrites.Where(r => approvedRewriteIds.Contains(r.Id)))
         {
-            if (!bulletsById.TryGetValue(rewrite.BulletId, out var bullet) || bullet is null ||
+            if (!bulletsById.TryGetValue(rewrite.BulletId, out var bullet) ||
                 !rolesById.ContainsKey(rewrite.RoleId))
             {
-                warnings.Add($"Skipped bullet rewrite {rewrite.Id}: RoleId/BulletId not found in the given CvDocument.");
+                warnings.Add(
+                    $"Skipped bullet rewrite {rewrite.Id}: RoleId/BulletId not found in the given CvDocument.");
                 continue;
             }
 
@@ -221,7 +223,8 @@ public class TailoringService(
         {
             if (!rolesById.TryGetValue(newBullet.RoleId, out var role))
             {
-                warnings.Add($"Skipped new bullet {newBullet.Id}: RoleId {newBullet.RoleId} not found in the given CvDocument.");
+                warnings.Add(
+                    $"Skipped new bullet {newBullet.Id}: RoleId {newBullet.RoleId} not found in the given CvDocument.");
                 continue;
             }
 
@@ -245,21 +248,22 @@ public class TailoringService(
         return new TailorApplyResult(cvDocument, warnings);
     }
 
-    private static bool IsValidLanguageSubstitution(string? currentLanguage, string proposedLanguage, JdRequirements jdRequirements) =>
+    private static bool IsValidLanguageSubstitution(string? currentLanguage, string proposedLanguage,
+        JdRequirements jdRequirements) =>
         currentLanguage is not null &&
         AllowedLanguages.Contains(currentLanguage) &&
         AllowedLanguages.Contains(proposedLanguage) &&
         proposedLanguage != currentLanguage &&
         jdRequirements.EmphasizedLanguages.Contains(proposedLanguage);
 
-    private class TailoringCompletion
+    protected sealed class TailoringCompletion
     {
         public List<BulletRewriteCandidate> BulletRewrites { get; set; } = new();
         public List<NewBulletCandidate> NewBullets { get; set; } = new();
         public List<NewSkillCandidate> NewSkills { get; set; } = new();
     }
 
-    private class BulletRewriteCandidate
+    protected sealed class BulletRewriteCandidate
     {
         public string RoleId { get; set; } = string.Empty;
         public string BulletId { get; set; } = string.Empty;
@@ -268,7 +272,7 @@ public class TailoringService(
         public string Reason { get; set; } = string.Empty;
     }
 
-    private class NewBulletCandidate
+    protected sealed class NewBulletCandidate
     {
         public string RoleId { get; set; } = string.Empty;
         public string ProposedText { get; set; } = string.Empty;
@@ -276,7 +280,7 @@ public class TailoringService(
         public string Reason { get; set; } = string.Empty;
     }
 
-    private class NewSkillCandidate
+    protected sealed class NewSkillCandidate
     {
         public string SkillName { get; set; } = string.Empty;
         public string Reason { get; set; } = string.Empty;

@@ -29,25 +29,26 @@ public class DrillService(
         Converters = { new JsonStringEnumConverter() }
     };
 
-    private const string EvaluationSystemPrompt = """
-                                                  You are an expert technical interviewer evaluating a candidate's answer to an
-                                                  interview question. The answer may have been typed directly or transcribed from
-                                                  speech — evaluate the content, not the modality.
+    private const string EvaluationSystemPrompt =
+        """
+        You are an expert technical interviewer evaluating a candidate's answer to an
+        interview question. The answer may have been typed directly or transcribed from
+        speech — evaluate the content, not the modality.
 
-                                                  Judge the answer on BOTH:
-                                                  - Technical/factual correctness and depth.
-                                                  - Communication quality: structure, conciseness, and whether it actually
-                                                    answers what was asked. A technically correct but rambling, unstructured, or
-                                                    off-target answer should NOT be scored as a clean Pass.
+        Judge the answer on BOTH:
+        - Technical/factual correctness and depth.
+        - Communication quality: structure, conciseness, and whether it actually
+          answers what was asked. A technically correct but rambling, unstructured, or
+          off-target answer should NOT be scored as a clean Pass.
 
-                                                  Return a JSON object matching exactly this shape:
-                                                  {
-                                                    "Outcome": "Pass" | "Weak" | "Fail",
-                                                    "Feedback": string,  // 1-3 sentences: what was good, what was missing
-                                                    "SuggestedFollowUp": string | null  // a clarifying follow-up question if
-                                                                                          // Outcome is "Weak"; null otherwise
-                                                  }
-                                                  """;
+        Return a JSON object matching exactly this shape:
+        {
+          "Outcome": "Pass" | "Weak" | "Fail",
+          "Feedback": string,  // 1-3 sentences: what was good, what was missing
+          "SuggestedFollowUp": string | null  // a clarifying follow-up question if
+                                                // Outcome is "Weak"; null otherwise
+        }
+        """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
@@ -130,7 +131,9 @@ public class DrillService(
 
         foreach (var entry in ledgerEntries.Where(e => e.Status == LedgerStatus.Provisional))
         {
-            var kind = entry.RelatedBulletId is not null ? CandidateKind.ProvisionalBullet : CandidateKind.ProvisionalSkill;
+            var kind = entry.RelatedBulletId is not null
+                ? CandidateKind.ProvisionalBullet
+                : CandidateKind.ProvisionalSkill;
             pool.Add((new Candidate(kind, entry.SubjectName, entry.Id, null), ProvisionalEntryWeight));
         }
 
@@ -170,50 +173,50 @@ public class DrillService(
         candidate.Kind switch
         {
             CandidateKind.ProvisionalBullet => ("""
-                You are an interview coach preparing a defend-the-claim behavioral question. The
-                candidate's CV includes a claimed accomplishment that hasn't yet been proven out in
-                practice interviews. Ask ONE behavioral question that asks the candidate to walk
-                through this specific experience in real detail — as a real interviewer verifying a
-                claim would, not a generic prompt.
+                                                You are an interview coach preparing a defend-the-claim behavioral question. The
+                                                candidate's CV includes a claimed accomplishment that hasn't yet been proven out in
+                                                practice interviews. Ask ONE behavioral question that asks the candidate to walk
+                                                through this specific experience in real detail — as a real interviewer verifying a
+                                                claim would, not a generic prompt.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Behavioral),
+                                                Return a JSON object matching exactly this shape: { "Prompt": string }
+                                                """, DrillTargetType.Behavioral),
 
             CandidateKind.ProvisionalSkill => ("""
-                You are an interview coach preparing a technical depth-check question. The candidate's
-                CV claims proficiency in a skill that hasn't yet been proven out in practice
-                interviews. Ask ONE technical question that tests real depth in this skill, not just
-                surface familiarity.
+                                               You are an interview coach preparing a technical depth-check question. The candidate's
+                                               CV claims proficiency in a skill that hasn't yet been proven out in practice
+                                               interviews. Ask ONE technical question that tests real depth in this skill, not just
+                                               surface familiarity.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Technical),
+                                               Return a JSON object matching exactly this shape: { "Prompt": string }
+                                               """, DrillTargetType.Technical),
 
             CandidateKind.JdGap => ("""
-                You are an interview coach preparing a gap-probe question. The job description
-                requires a skill the candidate's CV doesn't clearly evidence. Ask ONE question that
-                directly tests the candidate's ability in this skill, framed the way a real
-                interviewer would probe a suspected weak area — not accusatory, just direct.
+                                    You are an interview coach preparing a gap-probe question. The job description
+                                    requires a skill the candidate's CV doesn't clearly evidence. Ask ONE question that
+                                    directly tests the candidate's ability in this skill, framed the way a real
+                                    interviewer would probe a suspected weak area — not accusatory, just direct.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.GapProbe),
+                                    Return a JSON object matching exactly this shape: { "Prompt": string }
+                                    """, DrillTargetType.GapProbe),
 
             CandidateKind.ConfirmedBullet => ("""
-                You are an interview coach preparing a standard behavioral question. Ask ONE
-                "tell me about a time" style behavioral question based on the following CV bullet, so
-                the candidate's confirmed experience stays sharp for real interviews.
+                                              You are an interview coach preparing a standard behavioral question. Ask ONE
+                                              "tell me about a time" style behavioral question based on the following CV bullet, so
+                                              the candidate's confirmed experience stays sharp for real interviews.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Behavioral),
+                                              Return a JSON object matching exactly this shape: { "Prompt": string }
+                                              """, DrillTargetType.Behavioral),
 
             _ => ("""
-                You are an interview coach. Ask ONE general behavioral interview question suitable for
-                a software engineering candidate.
+                  You are an interview coach. Ask ONE general behavioral interview question suitable for
+                  a software engineering candidate.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Behavioral)
+                  Return a JSON object matching exactly this shape: { "Prompt": string }
+                  """, DrillTargetType.Behavioral)
         };
 
-    private enum CandidateKind
+    protected enum CandidateKind
     {
         ProvisionalBullet,
         ProvisionalSkill,
@@ -222,14 +225,18 @@ public class DrillService(
         Fallback
     }
 
-    private record Candidate(CandidateKind Kind, string ContextText, string? RelatedLedgerEntryId, string? RelatedRequirementId);
+    protected sealed record Candidate(
+        CandidateKind Kind,
+        string ContextText,
+        string? RelatedLedgerEntryId,
+        string? RelatedRequirementId);
 
-    private class QuestionCompletion
+    protected sealed class QuestionCompletion
     {
         public string Prompt { get; set; } = string.Empty;
     }
 
-    private class AnswerEvaluationCompletion
+    protected sealed class AnswerEvaluationCompletion
     {
         public DrillOutcome Outcome { get; set; }
         public string Feedback { get; set; } = string.Empty;
