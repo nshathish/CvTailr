@@ -2,7 +2,8 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.WebUtilities
 
-@inject ApiClient ApiClient
+@inject IJobsApiClient JobsApiClient
+@inject IScoreApiClient ScoreApiClient
 @inject WorkflowStateService WorkflowState
 @inject NavigationManager NavigationManager
 
@@ -93,7 +94,7 @@
             isLoadingJob = true;
             try
             {
-                var job = await ApiClient.GetJobByIdAsync(jobId);
+                var job = await JobsApiClient.GetJobByIdAsync(jobId);
                 if (job is null)
                 {
                     jobLoadError = $"Job '{jobId}' was not found.";
@@ -125,7 +126,7 @@
 
         try
         {
-            var outcome = await ApiClient.GetScoreAsync(WorkflowState.CurrentJob.Id);
+            var outcome = await ScoreApiClient.GetScoreAsync(WorkflowState.CurrentJob.Id);
             if (outcome.CvMissing)
             {
                 cvMissing = true;

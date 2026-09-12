@@ -2,7 +2,7 @@
 @rendermode InteractiveServer
 @using System.Text
 
-@inject ApiClient ApiClient
+@inject ICvApiClient CvApiClient
 @inject WorkflowStateService WorkflowState
 
 <PageTitle>Upload CV</PageTitle>
@@ -139,7 +139,7 @@
     {
         try
         {
-            var existing = await ApiClient.GetCurrentCvAsync();
+            var existing = await CvApiClient.GetCurrentCvAsync();
             if (existing is not null)
             {
                 parsedCv = existing;
@@ -226,7 +226,7 @@
                 sourceLabel = "Pasted text";
             }
 
-            var result = await ApiClient.ParseCvAsync(rawLatexSource);
+            var result = await CvApiClient.ParseCvAsync(rawLatexSource);
             parsedCv = result;
             WorkflowState.CurrentCv = result;
             currentCvSourceLabel = sourceLabel;

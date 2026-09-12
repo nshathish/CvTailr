@@ -1,5 +1,5 @@
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
-using CvTailr.Shared.Cv;
 using CvTailr.Shared.Ledger;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -13,22 +13,39 @@ public static class LedgerEndpoints
             .RequireAuthorization()
             .WithTags("Ledger")
             .WithDescription(
-                "Tracks provisional CV content (bullets/skills without evidence) and gates status changes behind explicit user confirmation — never automatic.");
+                "Tracks provisional CV content (bullets/skills without evidence), scoped per (cvId, jobId), and gates status changes behind explicit user confirmation — never automatic.");
 
-        group.MapPost("/register", async Task<Results<Ok<List<LedgerEntry>>, BadRequest<string>>> (
+        group.MapPost("/register", async Task<Results<Ok<List<LedgerEntry>>, BadRequest<string>, NotFound<string>>> (
                 RegisterLedgerRequest request,
                 ILedgerService ledgerService,
+                ITailoredCvRepository tailoredCvRepository,
+                IJobService jobService,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
-                if (request.CvDocument is null)
-                    return TypedResults.BadRequest("cvDocument is required.");
+                if (string.IsNullOrWhiteSpace(request.JobId))
+                    return TypedResults.BadRequest("jobId is required.");
 
-                var entries = await ledgerService.RegisterProvisionalItemsAsync(request.CvDocument, cancellationToken);
+                var userId = currentUserContext.GetUserId();
+
+                var job = await jobService.GetByIdAsync(userId, request.JobId, cancellationToken);
+                if (job is null)
+                    return TypedResults.NotFound($"Job '{request.JobId}' was not found for this user.");
+
+                var tailoredDocument = await tailoredCvRepository.GetByJobIdAsync(request.JobId, cancellationToken);
+                if (tailoredDocument is null)
+                    return TypedResults.NotFound(
+                        $"No tailored CV exists yet for job '{request.JobId}' — apply tailoring via /api/tailor/apply first.");
+
+                var entries = await ledgerService.RegisterProvisionalItemsAsync(
+                    tailoredDocument.CvId, request.JobId, tailoredDocument, cancellationToken);
+
                 return TypedResults.Ok(entries);
             })
             .WithName("RegisterProvisionalLedgerItems")
             .WithSummary("Register Provisional Ledger Items")
-            .WithDescription("Registers ledger entries for provisional CV bullets/skills that don't already have one.");
+            .WithDescription(
+                "Registers ledger entries for a job's tailored CV's provisional bullets/skills that don't already have one.");
 
         group.MapGet("/{cvId}", async Task<Ok<List<LedgerEntry>>> (
                 string cvId,
@@ -40,7 +57,32 @@ public static class LedgerEndpoints
             })
             .WithName("GetLedgerEntriesForCv")
             .WithSummary("Get Ledger Entries for CV")
-            .WithDescription("Returns all ledger entries associated with the specified CV.");
+            .WithDescription("Returns all ledger entries across every job tailored against this CV.");
+
+        group.MapGet("/jobs/{jobId}", async Task<Results<Ok<List<LedgerEntry>>, NotFound<string>>> (
+                string jobId,
+                ILedgerService ledgerService,
+                IJobService jobService,
+                ICvRepository cvRepository,
+                ICurrentUserContext currentUserContext,
+                CancellationToken cancellationToken) =>
+            {
+                var userId = currentUserContext.GetUserId();
+
+                var job = await jobService.GetByIdAsync(userId, jobId, cancellationToken);
+                if (job is null)
+                    return TypedResults.NotFound($"Job '{jobId}' was not found for this user.");
+
+                var masterCv = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+                if (masterCv is null)
+                    return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
+
+                var entries = await ledgerService.GetByCvAndJobIdAsync(masterCv.Id, jobId, cancellationToken);
+                return TypedResults.Ok(entries);
+            })
+            .WithName("GetLedgerEntriesForJob")
+            .WithSummary("Get Ledger Entries for Job")
+            .WithDescription("Returns ledger entries scoped to one specific job's tailoring only.");
 
         group.MapPost("/{entryId}/drill-attempt", async Task<Results<Ok<LedgerEntry>, NotFound<string>>> (
                 string entryId,
@@ -108,11 +150,12 @@ public static class LedgerEndpoints
             .WithName("ConfirmLedgerStatusChange")
             .WithSummary("Confirm Ledger Status Change")
             .WithDescription(
-                "Explicitly confirms a ledger status change. Must only be called after user confirmation — never automatically.");
+                "Explicitly confirms a ledger status change. Must only be called after user confirmation — never automatically. " +
+                "Confirmed/Removed also update the job's own TailoredCvDocument, never the master CvDocument.");
     }
 }
 
-public record RegisterLedgerRequest(CvDocument? CvDocument);
+public record RegisterLedgerRequest(string? JobId);
 
 public record RecordDrillAttemptRequest(DrillOutcome Outcome, string? Notes);
 

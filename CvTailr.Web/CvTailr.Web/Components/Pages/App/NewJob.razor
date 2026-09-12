@@ -1,7 +1,8 @@
 @page "/jobs/new"
 @rendermode InteractiveServer
 
-@inject ApiClient ApiClient
+@inject IJdApiClient JdApiClient
+@inject IScoreApiClient ScoreApiClient
 @inject WorkflowStateService WorkflowState
 
 <PageTitle>New Job</PageTitle>
@@ -180,7 +181,7 @@
 
         try
         {
-            var job = await ApiClient.ParseJdAsync(jdText);
+            var job = await JdApiClient.ParseJdAsync(jdText);
             WorkflowState.CurrentJob = job;
             currentStep = 2;
         }
@@ -215,7 +216,7 @@
 
         try
         {
-            var outcome = await ApiClient.GetScoreAsync(WorkflowState.CurrentJob.Id);
+            var outcome = await ScoreApiClient.GetScoreAsync(WorkflowState.CurrentJob.Id);
             if (outcome.CvMissing)
             {
                 cvMissing = true;

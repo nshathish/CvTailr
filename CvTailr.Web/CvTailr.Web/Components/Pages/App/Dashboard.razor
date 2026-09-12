@@ -1,7 +1,7 @@
 @page "/dashboard"
 @rendermode InteractiveServer
 
-@inject ApiClient ApiClient
+@inject IJobsApiClient JobsApiClient
 
 <PageTitle>Your jobs</PageTitle>
 
@@ -96,7 +96,7 @@
     {
         try
         {
-            jobs = await ApiClient.GetJobsAsync();
+            jobs = await JobsApiClient.GetJobsAsync();
         }
         catch (Exception ex)
         {

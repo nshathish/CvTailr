@@ -17,9 +17,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 
-// Minimal API request/response binding uses its own JsonSerializerOptions instance — without
-// this, enum request bodies (e.g. { "outcome": "Fail" }) fail to bind since the default expects
-// numeric enum values.
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -76,6 +73,7 @@ builder.Services.AddScoped<IDrillService, DrillService>();
 builder.Services.AddScoped<ICvRepository, CosmosCvRepository>();
 builder.Services.AddScoped<IJobRepository, CosmosJobRepository>();
 builder.Services.AddScoped<IJobService, JobService>();
+builder.Services.AddScoped<ITailoredCvRepository, CosmosTailoredCvRepository>();
 
 var app = builder.Build();
 
@@ -85,9 +83,7 @@ using (var startupScope = app.Services.CreateScope())
     var cosmosOptions = startupScope.ServiceProvider.GetRequiredService<IOptions<CosmosOptions>>().Value;
 
     var database = await cosmosClient.CreateDatabaseIfNotExistsAsync(cosmosOptions.DatabaseName);
-    await database.Database.CreateContainerIfNotExistsAsync(cosmosOptions.ContainerName, "/cvId");
-    await database.Database.CreateContainerIfNotExistsAsync(cosmosOptions.CvContainerName, "/userId");
-    await database.Database.CreateContainerIfNotExistsAsync(cosmosOptions.JobContainerName, "/userId");
+    await CosmosContainerProvisioner.EnsureContainersAsync(database.Database, cosmosOptions);
 }
 
 if (app.Environment.IsDevelopment())

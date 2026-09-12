@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CvTailr.Api.Clients;
 using CvTailr.Api.Configuration;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Drill;
@@ -15,7 +16,9 @@ namespace CvTailr.Api.Services;
 public class DrillService(
     IFoundryClient foundryClient,
     IOptions<FoundryOptions> foundryOptions,
-    ILedgerService ledgerService) : IDrillService
+    ILedgerService ledgerService,
+    ITailoredCvRepository tailoredCvRepository,
+    ICvRepository cvRepository) : IDrillService
 {
     // Weighted candidate pool tuning (root CLAUDE.md's continuous-feedback design): provisional
     // items are the least-proven claims and should come up most; confirmed content "shouldn't rot"
@@ -53,12 +56,34 @@ public class DrillService(
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
     public async Task<DrillQuestion> GenerateQuestionAsync(
-        CvDocument cvDocument,
+        string userId,
+        string jobId,
         JdRequirements jdRequirements,
-        List<LedgerEntry> ledgerEntries,
         CancellationToken cancellationToken = default)
     {
-        var pool = BuildCandidatePool(cvDocument, jdRequirements, ledgerEntries);
+        var tailoredDocument = await tailoredCvRepository.GetByJobIdAsync(jobId, cancellationToken);
+
+        string cvId;
+        List<CvRole> roles;
+
+        if (tailoredDocument is not null)
+        {
+            cvId = tailoredDocument.CvId;
+            roles = tailoredDocument.Roles;
+        }
+        else
+        {
+            // Same fallback as GET /api/jobs/{jobId}/cv: nothing tailored for this job yet, so
+            // drill against the master CV as a preview of what would be tailored.
+            var masterCv = await cvRepository.GetByUserIdAsync(userId, cancellationToken)
+                ?? throw new KeyNotFoundException("No CV found for this user — upload one via /api/cv/upload first.");
+            cvId = masterCv.Id;
+            roles = masterCv.Roles;
+        }
+
+        var ledgerEntries = await ledgerService.GetByCvAndJobIdAsync(cvId, jobId, cancellationToken);
+
+        var pool = BuildCandidatePool(roles, jdRequirements, ledgerEntries);
         var selected = pool.Count > 0
             ? PickWeighted(pool)
             : new Candidate(CandidateKind.Fallback, string.Empty, null, null);
@@ -123,7 +148,7 @@ public class DrillService(
     }
 
     private static List<(Candidate Candidate, int Weight)> BuildCandidatePool(
-        CvDocument cvDocument,
+        List<CvRole> roles,
         JdRequirements jdRequirements,
         List<LedgerEntry> ledgerEntries)
     {
@@ -142,7 +167,7 @@ public class DrillService(
             pool.Add((new Candidate(CandidateKind.JdGap, requirement.Skill, null, requirement.Id), JdGapWeight));
         }
 
-        foreach (var bullet in cvDocument.Roles.SelectMany(role => role.Bullets).Where(b => !b.IsProvisional))
+        foreach (var bullet in roles.SelectMany(role => role.Bullets).Where(b => !b.IsProvisional))
         {
             var contextText = bullet.TailoredText ?? bullet.OriginalText;
             pool.Add((new Candidate(CandidateKind.ConfirmedBullet, contextText, null, null), ConfirmedBulletWeight));

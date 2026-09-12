@@ -1,7 +1,7 @@
 @page "/jobs/{JobId}/tailor"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
-@inject ApiClient ApiClient
+@inject ITailorApiClient TailorApiClient
 @inject WorkflowStateService WorkflowState
 
 <PageTitle>Tailor CV</PageTitle>
@@ -197,7 +197,7 @@
     {
         try
         {
-            proposal = await ApiClient.ProposeTailoringAsync(JobId);
+            proposal = await TailorApiClient.ProposeTailoringAsync(JobId);
         }
         catch (Exception ex)
         {
@@ -238,7 +238,7 @@
             var approvedNewBullets = proposal.NewBullets.Where(b => approvedNewBulletIds.Contains(b.Id)).ToList();
             var approvedNewSkills = proposal.NewSkills.Where(s => approvedNewSkillIds.Contains(s.Id)).ToList();
 
-            var result = await ApiClient.ApplyTailoringAsync(
+            var result = await TailorApiClient.ApplyTailoringAsync(
                 JobId,
                 approvedRewriteIds.ToList(),
                 approvedRewrites,

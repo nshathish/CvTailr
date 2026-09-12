@@ -21,6 +21,7 @@ public static class TailoringEndpoints
                 TailorProposeRequest request,
                 ITailoringService tailoringService,
                 ICvRepository cvRepository,
+                ITailoredCvRepository tailoredCvRepository,
                 IJobService jobService,
                 ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
@@ -34,12 +35,13 @@ public static class TailoringEndpoints
                 if (job is null)
                     return TypedResults.NotFound($"Job '{request.JobId}' was not found for this user.");
 
-                var cvDocument = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
-                if (cvDocument is null)
+                var baseDocument = await ResolveBaseDocumentAsync(
+                    userId, request.JobId, cvRepository, tailoredCvRepository, cancellationToken);
+                if (baseDocument is null)
                     return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
 
                 var result = await tailoringService.ProposeAsync(
-                    cvDocument,
+                    baseDocument,
                     job.JdRequirements,
                     job.MatchScoreResult,
                     cancellationToken);
@@ -48,12 +50,15 @@ public static class TailoringEndpoints
             })
             .WithName("ProposeTailoring")
             .WithSummary("Propose Tailoring")
-            .WithDescription("Proposes CV tailoring changes for a Job's JD without persisting or mutating anything.");
+            .WithDescription(
+                "Proposes CV tailoring changes for a Job's JD without persisting or mutating anything. Bases the " +
+                "proposal on this job's already-tailored CV if one exists, otherwise on the master CV.");
 
         group.MapPost("/apply", async Task<Results<Ok<TailorApplyResponse>, BadRequest<string>, NotFound<string>>> (
                 TailorApplyRequest request,
                 ITailoringService tailoringService,
                 ICvRepository cvRepository,
+                ITailoredCvRepository tailoredCvRepository,
                 ILedgerService ledgerService,
                 IJobService jobService,
                 ICurrentUserContext currentUserContext,
@@ -68,36 +73,95 @@ public static class TailoringEndpoints
                 if (job is null)
                     return TypedResults.NotFound($"Job '{request.JobId}' was not found for this user.");
 
-                var cvDocument = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
-                if (cvDocument is null)
-                    return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
+                var existingTailoredCv = await tailoredCvRepository.GetByJobIdAsync(request.JobId, cancellationToken);
+
+                CvDocument baseDocument;
+                if (existingTailoredCv is not null)
+                {
+                    baseDocument = ToCvDocument(existingTailoredCv);
+                }
+                else
+                {
+                    var masterCv = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+                    if (masterCv is null)
+                        return TypedResults.NotFound(
+                            "No CV found for this user — upload one via /api/cv/upload first.");
+
+                    baseDocument = masterCv;
+                }
 
                 var result = tailoringService.ApplyAsync(
-                    cvDocument,
+                    baseDocument,
                     request.ApprovedBulletRewriteIds ?? [],
                     request.ProposedBulletRewrites ?? [],
                     request.ApprovedNewBullets ?? [],
                     request.ApprovedNewSkills ?? []);
 
-                // Persist the updated document — this is what unblocks future server-side stripping
-                // of Removed-status provisional content (root CLAUDE.md's "Known open design
-                // decisions"): CvDocument is no longer stateless, so there's now something to write
-                // that stripping logic back to. Not implemented here — out of scope for this task.
-                await cvRepository.UpsertAsync(result.CvDocument, cancellationToken);
+                // Persist the result as a per-job TailoredCvDocument — never back into the master
+                // CvDocument/ICvRepository. The master CV is only ever created/replaced via
+                // /api/cv/upload, so different jobs' tailoring never interferes with each other or
+                // with the original.
+                var tailoredCvDocument = existingTailoredCv ?? new TailoredCvDocument
+                {
+                    UserId = userId,
+                    CvId = baseDocument.Id,
+                    JobId = request.JobId
+                };
+                tailoredCvDocument.Roles = result.CvDocument.Roles;
+                tailoredCvDocument.Skills = result.CvDocument.Skills;
+                tailoredCvDocument.UpdatedAt = DateTimeOffset.UtcNow;
+
+                await tailoredCvRepository.UpsertAsync(tailoredCvDocument, cancellationToken);
 
                 // Ledger registration and the Job's Tailored transition happen as part of the same
                 // apply call so the client never has to orchestrate three separate requests for what
                 // is conceptually one action.
-                await ledgerService.RegisterProvisionalItemsAsync(result.CvDocument, cancellationToken);
+                await ledgerService.RegisterProvisionalItemsAsync(
+                    tailoredCvDocument.CvId, request.JobId, tailoredCvDocument, cancellationToken);
                 var updatedJob = await jobService.MarkTailoredAsync(userId, request.JobId, cancellationToken);
 
-                return TypedResults.Ok(new TailorApplyResponse(result.CvDocument, updatedJob, result.Warnings));
+                return TypedResults.Ok(new TailorApplyResponse(tailoredCvDocument, updatedJob, result.Warnings));
             })
             .WithName("ApplyTailoring")
             .WithSummary("Apply Tailoring")
             .WithDescription(
-                "Applies user-approved tailoring changes to the current user's CvDocument, persists it, registers ledger entries for new provisional content, and marks the Job Tailored.");
+                "Applies user-approved tailoring changes on top of this job's existing tailored CV (or the master " +
+                "CV if none exists yet), persists the result as that job's TailoredCvDocument, registers ledger " +
+                "entries for new provisional content, and marks the Job Tailored. Never modifies the master CV.");
     }
+
+    /// <summary>
+    /// Resolves the document tailoring should be based on for a given job: the job's own
+    /// TailoredCvDocument if one already exists (so re-tailoring builds on prior edits, not from
+    /// scratch), otherwise the user's master CvDocument. Returns null if the user has no master CV
+    /// at all and no tailoring has happened yet for this job.
+    /// </summary>
+    private static async Task<CvDocument?> ResolveBaseDocumentAsync(
+        string userId,
+        string jobId,
+        ICvRepository cvRepository,
+        ITailoredCvRepository tailoredCvRepository,
+        CancellationToken cancellationToken)
+    {
+        var tailoredCv = await tailoredCvRepository.GetByJobIdAsync(jobId, cancellationToken);
+        if (tailoredCv is not null)
+            return ToCvDocument(tailoredCv);
+
+        return await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+    }
+
+    /// <summary>
+    /// TailoredCvDocument and CvDocument share the same Roles/Skills shape, so ITailoringService
+    /// (which operates on "a document" generically) can work against either without duplicating any
+    /// tailoring logic — this just adapts the shape.
+    /// </summary>
+    private static CvDocument ToCvDocument(TailoredCvDocument tailoredCvDocument) => new()
+    {
+        Id = tailoredCvDocument.CvId,
+        UserId = tailoredCvDocument.UserId,
+        Roles = tailoredCvDocument.Roles,
+        Skills = tailoredCvDocument.Skills
+    };
 }
 
 public record TailorProposeRequest(string? JobId);
@@ -109,4 +173,4 @@ public record TailorApplyRequest(
     List<NewBulletProposal>? ApprovedNewBullets,
     List<NewSkillProposal>? ApprovedNewSkills);
 
-public record TailorApplyResponse(CvDocument CvDocument, Job Job, List<string> Warnings);
+public record TailorApplyResponse(TailoredCvDocument TailoredCvDocument, Job Job, List<string> Warnings);
