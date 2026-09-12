@@ -1,16 +1,20 @@
-using CvTailr.Shared.Cv;
 using CvTailr.Shared.Drill;
 using CvTailr.Shared.Jd;
-using CvTailr.Shared.Ledger;
 
 namespace CvTailr.Api.Services.Interfaces;
 
 public interface IDrillService
 {
+    /// <summary>
+    /// Resolves this job's TailoredCvDocument internally (falling back to the master CvDocument
+    /// if none exists yet, same fallback as GET /api/jobs/{jobId}/cv) and weights candidate
+    /// questions using ONLY this job's ledger entries — other jobs' provisional content is never
+    /// considered. Throws KeyNotFoundException if the user has no CV at all.
+    /// </summary>
     Task<DrillQuestion> GenerateQuestionAsync(
-        CvDocument cvDocument,
+        string userId,
+        string jobId,
         JdRequirements jdRequirements,
-        List<LedgerEntry> ledgerEntries,
         CancellationToken cancellationToken = default);
 
     /// <summary>

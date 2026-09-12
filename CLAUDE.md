@@ -10,12 +10,26 @@ results back into whether tailored additions stay on the CV.
 Independent projects, each with its own solution/build tooling, living as
 sibling folders in one repo. No shared root .sln. Communication between
 projects is either:
-- Direct .NET project reference (only Api <-> Shared, both .NET), or
-- HTTP/JSON against Api's documented (OpenAPI) contract (everything else).
+- Direct .NET project reference to `CvTailr.Shared` (any .NET project —
+  Api, and currently Web/Blazor and Mobile/MAUI too), or
+- HTTP/JSON against Api's documented (OpenAPI) contract (any non-.NET
+  piece, e.g. `latex-service`, or a future non-.NET UI).
 
-This is deliberate: UI-layer projects (Web, Mobile) must stay swappable
-(e.g. Blazor -> React, MAUI -> Flutter) without depending on shared .NET
-types. Never add a project reference from Web or Mobile into Shared.
+`CvTailr.Shared` exists specifically to be reused across every .NET
+project in this repo — that's the point of pulling these models into
+their own class library rather than duplicating them per project. A
+direct `ProjectReference` from Web or Mobile into Shared is fine as
+long as they stay .NET (Blazor, MAUI). This does mean today's Web/
+Mobile compile against real shared .NET types rather than treating
+Api's JSON contract as an enforced boundary — that's accepted for now.
+
+**If/when Web or Mobile is ever rewritten in a non-.NET stack** (Blazor
+-> React, MAUI -> Flutter), that project can no longer reference
+Shared, and will need local DTOs mirroring whatever Shared types it
+used, talking to Api over HTTP/JSON only. Treat that as a dedicated,
+deliberate migration task at that time — not something to pre-emptively
+half-do now by avoiding the reference or hand-duplicating types "just
+in case."
 
 Projects:
 - `CvTailr.Shared` — core domain models (CvDocument, JdRequirements,
@@ -95,27 +109,32 @@ Projects:
 These are deliberate, documented gaps — not oversights. Resolve them
 when the referenced trigger condition is reached, not before.
 
-### Removed provisional content is not yet stripped from CvDocument
+### Removed provisional content is stripped from the job's TailoredCvDocument (resolved)
 
-When a `LedgerEntry` is downgraded to `Status = Removed` (via
-`/api/ledger/{entryId}/confirm-status`), nothing currently removes the
-corresponding bullet/skill from the `CvDocument` itself. `CvDocument`
-is passed statelessly between API calls and is not yet persisted
-anywhere (only `LedgerEntry` has Cosmos persistence, as of the ledger
-task). Two options exist, and the choice depends on what triggers it:
+This used to be an open gap: `LedgerEntry` downgraded to
+`Status = Removed` had nothing to actually remove the bullet/skill
+from, since `CvDocument` was passed statelessly and unpersisted.
 
-- **Client-side filtering** (fits today's stateless design): any
-  consumer that renders/exports a CV (Web app, future LaTeX
-  regeneration step) must cross-reference `IsProvisional` bullets/
-  skills against the current ledger state and exclude any whose
-  matching `LedgerEntry.Status == Removed`. No API change required.
-- **A `/api/tailor/revert` endpoint** that mutates a persisted
-  `CvDocument` server-side, producing one canonical "current" document.
-  This only makes sense once `CvDocument` itself is persisted in Cosmos
-  (or elsewhere) — there's nothing to write back to yet.
+As of the ledger hierarchical-partitioning task (`LedgerEntry` scoped
+per `(cvId, jobId)`, alongside the per-job `TailoredCvDocument` from the
+preceding task), `/api/ledger/{entryId}/confirm-status` with
+`Status = Removed` now has `ILedgerService` strip the corresponding
+bullet/skill out of that job's `TailoredCvDocument` (via
+`ITailoredCvRepository.UpsertAsync`). The master `CvDocument` is never
+touched. `Status = Confirmed` similarly updates that item's
+`IsProvisional` flag to `false`, scoped to the same job's
+`TailoredCvDocument` only — see the next section.
 
-**Decision trigger:** revisit this when `CvDocument` persistence is
-built (expected to happen alongside `CvTailr.Web`, when a user needs to
-save/reload a CV across sessions rather than re-parsing LaTeX every
-time). Until then, default to client-side filtering if anything needs
-to render a "current" CV state.
+### Confirmed provisional items stay scoped to the job they were tailored for (deliberate)
+
+When a `LedgerEntry` is confirmed (`Status = Confirmed`), the change is
+scoped entirely to that job's `TailoredCvDocument` — it does **not**
+merge back into the master `CvDocument`. Confirming an item is a
+statement about how that item performed under drilling for *this job's*
+tailoring, not a promotion into every future job's starting point; a
+different job tailored from the same master CV starts from the same
+provisional state again.
+
+This is a deliberate design choice, not a limitation to fix later — do
+not "fix" this into a master-CV merge without an explicit, re-discussed
+decision to do so.

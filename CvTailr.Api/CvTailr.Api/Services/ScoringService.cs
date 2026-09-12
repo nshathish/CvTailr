@@ -24,39 +24,40 @@ public class ScoringService(
         Converters = { new JsonStringEnumConverter() }
     };
 
-    private const string SystemPrompt = """
-                                        You are an expert technical recruiter assessing how well a candidate's CV matches a
-                                        job description's requirements.
+    private const string SystemPrompt =
+        """
+        You are an expert technical recruiter assessing how well a candidate's CV matches a
+        job description's requirements.
 
-                                        You will be given a JSON object with two properties: "JdRequirements" (the parsed
-                                        job description requirements) and "CvDocument" (the candidate's parsed CV).
+        You will be given a JSON object with two properties: "JdRequirements" (the parsed
+        job description requirements) and "CvDocument" (the candidate's parsed CV).
 
-                                        For EVERY item in JdRequirements.Requirements, assess whether the CV evidences that
-                                        requirement, and return a JSON object matching exactly this shape:
-                                        {
-                                          "RequirementMatches": [
-                                            {
-                                              "RequirementId": string,  // must exactly match the input requirement's Id
-                                              "Skill": string,          // copy the input requirement's Skill
-                                              "IsMet": bool,
-                                              "Confidence": number,     // 0-100: how strongly the CV evidences this
-                                              "SupportingEvidence": string | null,  // the CV bullet or skill that supports this, if met
-                                              "GapNote": string | null  // short note on what's missing, if not met
-                                            }
-                                          ],
-                                          "Rationale": string  // 2-4 sentences summarizing overall fit: the strongest
-                                                                // matches and the most significant gaps. Do not mention
-                                                                // or restate a percentage score.
-                                        }
+        For EVERY item in JdRequirements.Requirements, assess whether the CV evidences that
+        requirement, and return a JSON object matching exactly this shape:
+        {
+          "RequirementMatches": [
+            {
+              "RequirementId": string,  // must exactly match the input requirement's Id
+              "Skill": string,          // copy the input requirement's Skill
+              "IsMet": bool,
+              "Confidence": number,     // 0-100: how strongly the CV evidences this
+              "SupportingEvidence": string | null,  // the CV bullet or skill that supports this, if met
+              "GapNote": string | null  // short note on what's missing, if not met
+            }
+          ],
+          "Rationale": string  // 2-4 sentences summarizing overall fit: the strongest
+                                // matches and the most significant gaps. Do not mention
+                                // or restate a percentage score.
+        }
 
-                                        Rules:
-                                        - Return exactly one RequirementMatch per input requirement, in any order, but
-                                          every RequirementId from the input must appear exactly once in the output.
-                                        - SupportingEvidence must be null when IsMet is false. GapNote must be null when
-                                          IsMet is true.
-                                        - Base your assessment only on the CV content actually provided — never assume a
-                                          skill is present unless it's listed or evidenced by a bullet.
-                                        """;
+        Rules:
+        - Return exactly one RequirementMatch per input requirement, in any order, but
+          every RequirementId from the input must appear exactly once in the output.
+        - SupportingEvidence must be null when IsMet is false. GapNote must be null when
+          IsMet is true.
+        - Base your assessment only on the CV content actually provided — never assume a
+          skill is present unless it's listed or evidenced by a bullet.
+        """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
@@ -143,7 +144,7 @@ public class ScoringService(
         return maxPossiblePoints == 0 ? 0 : (int)Math.Round(100.0 * pointsEarned / maxPossiblePoints);
     }
 
-    private class ScoringCompletion
+    protected sealed class ScoringCompletion
     {
         public List<RequirementMatch> RequirementMatches { get; set; } = new();
         public string Rationale { get; set; } = string.Empty;

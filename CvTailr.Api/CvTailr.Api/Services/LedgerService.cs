@@ -5,7 +5,10 @@ using CvTailr.Shared.Ledger;
 
 namespace CvTailr.Api.Services;
 
-public class LedgerService(ILedgerRepository ledgerRepository, ILogger<LedgerService> logger) : ILedgerService
+public class LedgerService(
+    ILedgerRepository ledgerRepository,
+    ITailoredCvRepository tailoredCvRepository,
+    ILogger<LedgerService> logger) : ILedgerService
 {
     // Mirrors LedgerEntry.HasRecentWeakPerformance's own defaults, made explicit here so the
     // threshold is visible and tunable at the call site rather than hidden in a default parameter.
@@ -15,16 +18,17 @@ public class LedgerService(ILedgerRepository ledgerRepository, ILogger<LedgerSer
     // Promotion requires this many of the most recent attempts to all be Pass.
     private const int PromotionLookback = 3;
 
-    public async Task<List<LedgerEntry>> RegisterProvisionalItemsAsync(CvDocument cvDocument, CancellationToken cancellationToken = default)
+    public async Task<List<LedgerEntry>> RegisterProvisionalItemsAsync(
+        string cvId, string jobId, TailoredCvDocument tailoredDocument, CancellationToken cancellationToken = default)
     {
-        var existingEntries = await ledgerRepository.GetByCvIdAsync(cvDocument.Id, cancellationToken);
+        var existingEntries = await ledgerRepository.GetByCvAndJobIdAsync(cvId, jobId, cancellationToken);
         var existingKeys = existingEntries
             .Select(e => (e.SubjectName, e.RelatedBulletId))
             .ToHashSet();
 
         var newEntries = new List<LedgerEntry>();
 
-        foreach (var skill in cvDocument.Skills.Where(s => s.IsProvisional))
+        foreach (var skill in tailoredDocument.Skills.Where(s => s.IsProvisional))
         {
             var key = (skill.Name, (string?)null);
             if (!existingKeys.Add(key))
@@ -34,14 +38,15 @@ public class LedgerService(ILedgerRepository ledgerRepository, ILogger<LedgerSer
 
             newEntries.Add(new LedgerEntry
             {
-                CvId = cvDocument.Id,
+                CvId = cvId,
+                JobId = jobId,
                 SubjectName = skill.Name,
                 RelatedBulletId = null,
                 Status = LedgerStatus.Provisional
             });
         }
 
-        foreach (var bullet in cvDocument.Roles.SelectMany(role => role.Bullets).Where(b => b.IsProvisional))
+        foreach (var bullet in tailoredDocument.Roles.SelectMany(role => role.Bullets).Where(b => b.IsProvisional))
         {
             var key = (bullet.OriginalText, (string?)bullet.Id);
             if (!existingKeys.Add(key))
@@ -51,7 +56,8 @@ public class LedgerService(ILedgerRepository ledgerRepository, ILogger<LedgerSer
 
             newEntries.Add(new LedgerEntry
             {
-                CvId = cvDocument.Id,
+                CvId = cvId,
+                JobId = jobId,
                 SubjectName = bullet.OriginalText,
                 RelatedBulletId = bullet.Id,
                 Status = LedgerStatus.Provisional
@@ -68,6 +74,9 @@ public class LedgerService(ILedgerRepository ledgerRepository, ILogger<LedgerSer
 
     public Task<List<LedgerEntry>> GetByCvIdAsync(string cvId, CancellationToken cancellationToken = default) =>
         ledgerRepository.GetByCvIdAsync(cvId, cancellationToken);
+
+    public Task<List<LedgerEntry>> GetByCvAndJobIdAsync(string cvId, string jobId, CancellationToken cancellationToken = default) =>
+        ledgerRepository.GetByCvAndJobIdAsync(cvId, jobId, cancellationToken);
 
     public async Task<LedgerEntry> RecordDrillAttemptAsync(string ledgerEntryId, DrillAttempt attempt, CancellationToken cancellationToken = default)
     {
@@ -145,7 +154,76 @@ public class LedgerService(ILedgerRepository ledgerRepository, ILogger<LedgerSer
         entry.LastReviewed = DateTimeOffset.UtcNow;
 
         await ledgerRepository.UpdateAsync(entry, cancellationToken);
+
+        if (newStatus is LedgerStatus.Confirmed or LedgerStatus.Removed)
+        {
+            await ApplyStatusChangeToTailoredDocumentAsync(entry, newStatus, cancellationToken);
+        }
+
         return entry;
+    }
+
+    // Per root CLAUDE.md's deliberate design decision: Confirmed/Removed only ever affect the
+    // job's own TailoredCvDocument, never the master CvDocument, and never merge across jobs.
+    private async Task ApplyStatusChangeToTailoredDocumentAsync(LedgerEntry entry, LedgerStatus newStatus, CancellationToken cancellationToken)
+    {
+        var tailoredDocument = await tailoredCvRepository.GetByJobIdAsync(entry.JobId, cancellationToken);
+        if (tailoredDocument is null)
+        {
+            logger.LogInformation(
+                "No TailoredCvDocument exists yet for job {JobId} — nothing to update for ledger entry {LedgerEntryId}.",
+                entry.JobId, entry.Id);
+            return;
+        }
+
+        var changed = false;
+
+        if (entry.RelatedBulletId is not null)
+        {
+            foreach (var role in tailoredDocument.Roles)
+            {
+                var bullet = role.Bullets.FirstOrDefault(b => b.Id == entry.RelatedBulletId);
+                if (bullet is null)
+                {
+                    continue;
+                }
+
+                if (newStatus == LedgerStatus.Removed)
+                {
+                    role.Bullets.Remove(bullet);
+                }
+                else
+                {
+                    bullet.IsProvisional = false;
+                }
+
+                changed = true;
+                break;
+            }
+        }
+        else
+        {
+            var skill = tailoredDocument.Skills.FirstOrDefault(s => s.Name == entry.SubjectName);
+            if (skill is not null)
+            {
+                if (newStatus == LedgerStatus.Removed)
+                {
+                    tailoredDocument.Skills.Remove(skill);
+                }
+                else
+                {
+                    skill.IsProvisional = false;
+                }
+
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            tailoredDocument.UpdatedAt = DateTimeOffset.UtcNow;
+            await tailoredCvRepository.UpsertAsync(tailoredDocument, cancellationToken);
+        }
     }
 
     private async Task<LedgerEntry> GetRequiredEntryAsync(string ledgerEntryId, CancellationToken cancellationToken)

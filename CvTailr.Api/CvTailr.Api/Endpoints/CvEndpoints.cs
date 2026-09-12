@@ -9,7 +9,10 @@ public static class CvEndpoints
     public static void MapCvEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/cv")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithTags("Cv")
+            .WithDescription(
+                "Parses a candidate's raw LaTeX CV into a structured CvDocument and persists exactly one current CV per user.");
 
         group.MapPost("/parse", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
                 UploadCvRequest request,
@@ -25,7 +28,9 @@ public static class CvEndpoints
                 return TypedResults.Ok(result);
             })
             .WithName("UploadCv")
-            .WithSummary("Uploads/replaces the current user's CV: parses raw LaTeX source into a structured CvDocument and persists it.");
+            .WithSummary("Upload CV")
+            .WithDescription(
+                "Uploads/replaces the current user's CV: parses raw LaTeX source into a structured CvDocument and persists it.");
 
         group.MapGet("/current", async Task<Results<Ok<CvDocument>, NotFound<string>>> (
                 ICvParsingService cvParsingService,
@@ -39,7 +44,8 @@ public static class CvEndpoints
                     : TypedResults.Ok(document);
             })
             .WithName("GetCurrentCv")
-            .WithSummary("Returns the current user's persisted CvDocument.");
+            .WithSummary("Get Current CV")
+            .WithDescription("Returns the current user's persisted CvDocument.");
     }
 }
 

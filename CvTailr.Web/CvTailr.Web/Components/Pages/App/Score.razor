@@ -1,24 +1,38 @@
 @page "/score"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.WebUtilities
 
-@inject ApiClient ApiClient
+@inject IJobsApiClient JobsApiClient
+@inject IScoreApiClient ScoreApiClient
 @inject WorkflowStateService WorkflowState
+@inject NavigationManager NavigationManager
 
 <PageTitle>Score</PageTitle>
 
 <div class="mx-auto max-w-3xl px-4 py-8 space-y-6">
     <h1 class="text-2xl font-semibold text-slate-900">Match score</h1>
 
-    @if (WorkflowState.CurrentJd is null)
+    @if (isLoadingJob)
+    {
+        <p class="text-sm text-slate-500">Loading job...</p>
+    }
+    else if (jobLoadError is not null)
+    {
+        <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+            <p class="font-medium">Couldn't load that job.</p>
+            <p class="mt-1">@jobLoadError</p>
+        </div>
+    }
+    else if (WorkflowState.CurrentJob is null)
     {
         <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
             You haven't parsed a job description yet this session.
-            <NavLink href="jd" class="font-medium text-indigo-600 hover:text-indigo-500">Paste a JD first</NavLink>.
+            <NavLink href="jobs/new" class="font-medium text-indigo-600 hover:text-indigo-500">Paste a JD first</NavLink>.
         </div>
     }
     else
     {
-        @if (!hasIncomingScore)
+        @if (WorkflowState.CurrentJob.MatchScoreResult is null)
         {
             <button
                 @onclick="ScoreAsync"
@@ -55,67 +69,7 @@
             </div>
         }
 
-        @if (score is not null)
-        {
-            <div class="space-y-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-                <div class="flex items-center gap-4">
-                    <div class="@GetScoreRingClass(score.OverallScorePercent) flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 text-xl font-bold">
-                        @score.OverallScorePercent%
-                    </div>
-                    <p class="text-sm text-slate-700">@score.Rationale</p>
-                </div>
-            </div>
-
-            @if (missingMustHaves.Count > 0)
-            {
-                <div class="space-y-2 rounded-md border border-red-300 bg-red-50 p-4">
-                    <h2 class="text-sm font-semibold text-red-900">Missing must-haves</h2>
-                    <div class="space-y-2">
-                        @foreach (var match in missingMustHaves)
-                        {
-                            <div class="rounded-md border border-red-200 bg-white p-3">
-                                <p class="text-sm font-medium text-slate-900">@match.Skill</p>
-                                @if (!string.IsNullOrWhiteSpace(match.GapNote))
-                                {
-                                    <p class="mt-1 text-xs text-slate-600">@match.GapNote</p>
-                                }
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            <div class="space-y-2">
-                <h2 class="text-sm font-medium text-slate-700">Requirement breakdown</h2>
-                <div class="space-y-2">
-                    @foreach (var match in score.RequirementMatches)
-                    {
-                        <div class="flex items-start gap-3 rounded-md border border-slate-100 p-3">
-                            <div class="flex shrink-0 flex-col items-start gap-1">
-                                <span class="@GetPriorityBadgeClass(GetPriority(match.RequirementId)) rounded-full px-2 py-0.5 text-xs font-medium">
-                                    @(GetPriority(match.RequirementId) == RequirementPriority.MustHave ? "Must have" : "Nice to have")
-                                </span>
-                                <span class="@GetMetBadgeClass(match.IsMet) rounded-full px-2 py-0.5 text-xs font-medium">
-                                    @(match.IsMet ? "Met" : "Not met")
-                                </span>
-                            </div>
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-slate-900">@match.Skill</p>
-                                <p class="text-xs text-slate-500">Confidence: @match.Confidence%</p>
-                                @if (!string.IsNullOrWhiteSpace(match.SupportingEvidence))
-                                {
-                                    <p class="mt-1 text-xs text-slate-600">@match.SupportingEvidence</p>
-                                }
-                                @if (!match.IsMet && !string.IsNullOrWhiteSpace(match.GapNote))
-                                {
-                                    <p class="mt-1 text-xs text-slate-600">@match.GapNote</p>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
+        <ScoreResultView Job="WorkflowState.CurrentJob" />
     }
 </div>
 
@@ -123,49 +77,63 @@
     private bool isLoading;
     private bool cvMissing;
     private string? errorMessage;
-    private MatchScoreResult? score;
-    private List<RequirementMatch> missingMustHaves = new();
-    private bool hasIncomingScore;
+    private bool isLoadingJob;
+    private string? jobLoadError;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Arrived via the JD page's "Score my CV against this JD" CTA, which already
-        // did the scoring call — show the result immediately, skip the button entirely.
-        if (WorkflowState.CurrentScore is not null)
+        // Arrived from the Dashboard's job cards (?jobId=...) — load that specific job
+        // into workflow state before anything else, unless it's already the current one.
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var jobId = QueryHelpers.ParseQuery(uri.Query).TryGetValue("jobId", out var jobIdValues)
+            ? jobIdValues.ToString()
+            : null;
+
+        if (!string.IsNullOrWhiteSpace(jobId) && WorkflowState.CurrentJob?.Id != jobId)
         {
-            hasIncomingScore = true;
-            score = WorkflowState.CurrentScore;
-            missingMustHaves = score.RequirementMatches
-                .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
-                .ToList();
+            isLoadingJob = true;
+            try
+            {
+                var job = await JobsApiClient.GetJobByIdAsync(jobId);
+                if (job is null)
+                {
+                    jobLoadError = $"Job '{jobId}' was not found.";
+                }
+                else
+                {
+                    WorkflowState.CurrentJob = job;
+                }
+            }
+            catch (Exception ex)
+            {
+                jobLoadError = ex.Message;
+            }
+            finally
+            {
+                isLoadingJob = false;
+            }
         }
     }
 
     private async Task ScoreAsync()
     {
-        if (WorkflowState.CurrentJd is null)
+        if (WorkflowState.CurrentJob is null)
             return;
 
         isLoading = true;
         errorMessage = null;
         cvMissing = false;
-        score = null;
-        missingMustHaves = new();
 
         try
         {
-            var outcome = await ApiClient.GetScoreAsync(WorkflowState.CurrentJd);
+            var outcome = await ScoreApiClient.GetScoreAsync(WorkflowState.CurrentJob.Id);
             if (outcome.CvMissing)
             {
                 cvMissing = true;
             }
             else
             {
-                score = outcome.Score;
-                WorkflowState.CurrentScore = score;
-                missingMustHaves = score!.RequirementMatches
-                    .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
-                    .ToList();
+                WorkflowState.CurrentJob = outcome.Job;
             }
         }
         catch (Exception ex)
@@ -177,26 +145,4 @@
             isLoading = false;
         }
     }
-
-    private RequirementPriority GetPriority(string requirementId) =>
-        WorkflowState.CurrentJd?.Requirements.FirstOrDefault(r => r.Id == requirementId)?.Priority
-            ?? RequirementPriority.NiceToHave;
-
-    private static string GetPriorityBadgeClass(RequirementPriority priority) => priority switch
-    {
-        RequirementPriority.MustHave => "bg-red-100 text-red-800",
-        RequirementPriority.NiceToHave => "bg-emerald-100 text-emerald-800",
-        _ => "bg-slate-100 text-slate-800"
-    };
-
-    private static string GetMetBadgeClass(bool isMet) => isMet
-        ? "bg-emerald-100 text-emerald-800"
-        : "bg-slate-200 text-slate-700";
-
-    private static string GetScoreRingClass(int scorePercent) => scorePercent switch
-    {
-        >= 80 => "border-emerald-500 text-emerald-700",
-        >= 50 => "border-amber-500 text-amber-700",
-        _ => "border-red-500 text-red-700"
-    };
 }

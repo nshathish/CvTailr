@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CvTailr.Api.Clients;
 using CvTailr.Api.Configuration;
+using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Drill;
@@ -15,7 +16,9 @@ namespace CvTailr.Api.Services;
 public class DrillService(
     IFoundryClient foundryClient,
     IOptions<FoundryOptions> foundryOptions,
-    ILedgerService ledgerService) : IDrillService
+    ILedgerService ledgerService,
+    ITailoredCvRepository tailoredCvRepository,
+    ICvRepository cvRepository) : IDrillService
 {
     // Weighted candidate pool tuning (root CLAUDE.md's continuous-feedback design): provisional
     // items are the least-proven claims and should come up most; confirmed content "shouldn't rot"
@@ -29,35 +32,58 @@ public class DrillService(
         Converters = { new JsonStringEnumConverter() }
     };
 
-    private const string EvaluationSystemPrompt = """
-                                                  You are an expert technical interviewer evaluating a candidate's answer to an
-                                                  interview question. The answer may have been typed directly or transcribed from
-                                                  speech — evaluate the content, not the modality.
+    private const string EvaluationSystemPrompt =
+        """
+        You are an expert technical interviewer evaluating a candidate's answer to an
+        interview question. The answer may have been typed directly or transcribed from
+        speech — evaluate the content, not the modality.
 
-                                                  Judge the answer on BOTH:
-                                                  - Technical/factual correctness and depth.
-                                                  - Communication quality: structure, conciseness, and whether it actually
-                                                    answers what was asked. A technically correct but rambling, unstructured, or
-                                                    off-target answer should NOT be scored as a clean Pass.
+        Judge the answer on BOTH:
+        - Technical/factual correctness and depth.
+        - Communication quality: structure, conciseness, and whether it actually
+          answers what was asked. A technically correct but rambling, unstructured, or
+          off-target answer should NOT be scored as a clean Pass.
 
-                                                  Return a JSON object matching exactly this shape:
-                                                  {
-                                                    "Outcome": "Pass" | "Weak" | "Fail",
-                                                    "Feedback": string,  // 1-3 sentences: what was good, what was missing
-                                                    "SuggestedFollowUp": string | null  // a clarifying follow-up question if
-                                                                                          // Outcome is "Weak"; null otherwise
-                                                  }
-                                                  """;
+        Return a JSON object matching exactly this shape:
+        {
+          "Outcome": "Pass" | "Weak" | "Fail",
+          "Feedback": string,  // 1-3 sentences: what was good, what was missing
+          "SuggestedFollowUp": string | null  // a clarifying follow-up question if
+                                                // Outcome is "Weak"; null otherwise
+        }
+        """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
     public async Task<DrillQuestion> GenerateQuestionAsync(
-        CvDocument cvDocument,
+        string userId,
+        string jobId,
         JdRequirements jdRequirements,
-        List<LedgerEntry> ledgerEntries,
         CancellationToken cancellationToken = default)
     {
-        var pool = BuildCandidatePool(cvDocument, jdRequirements, ledgerEntries);
+        var tailoredDocument = await tailoredCvRepository.GetByJobIdAsync(jobId, cancellationToken);
+
+        string cvId;
+        List<CvRole> roles;
+
+        if (tailoredDocument is not null)
+        {
+            cvId = tailoredDocument.CvId;
+            roles = tailoredDocument.Roles;
+        }
+        else
+        {
+            // Same fallback as GET /api/jobs/{jobId}/cv: nothing tailored for this job yet, so
+            // drill against the master CV as a preview of what would be tailored.
+            var masterCv = await cvRepository.GetByUserIdAsync(userId, cancellationToken)
+                ?? throw new KeyNotFoundException("No CV found for this user — upload one via /api/cv/upload first.");
+            cvId = masterCv.Id;
+            roles = masterCv.Roles;
+        }
+
+        var ledgerEntries = await ledgerService.GetByCvAndJobIdAsync(cvId, jobId, cancellationToken);
+
+        var pool = BuildCandidatePool(roles, jdRequirements, ledgerEntries);
         var selected = pool.Count > 0
             ? PickWeighted(pool)
             : new Candidate(CandidateKind.Fallback, string.Empty, null, null);
@@ -122,7 +148,7 @@ public class DrillService(
     }
 
     private static List<(Candidate Candidate, int Weight)> BuildCandidatePool(
-        CvDocument cvDocument,
+        List<CvRole> roles,
         JdRequirements jdRequirements,
         List<LedgerEntry> ledgerEntries)
     {
@@ -130,7 +156,9 @@ public class DrillService(
 
         foreach (var entry in ledgerEntries.Where(e => e.Status == LedgerStatus.Provisional))
         {
-            var kind = entry.RelatedBulletId is not null ? CandidateKind.ProvisionalBullet : CandidateKind.ProvisionalSkill;
+            var kind = entry.RelatedBulletId is not null
+                ? CandidateKind.ProvisionalBullet
+                : CandidateKind.ProvisionalSkill;
             pool.Add((new Candidate(kind, entry.SubjectName, entry.Id, null), ProvisionalEntryWeight));
         }
 
@@ -139,7 +167,7 @@ public class DrillService(
             pool.Add((new Candidate(CandidateKind.JdGap, requirement.Skill, null, requirement.Id), JdGapWeight));
         }
 
-        foreach (var bullet in cvDocument.Roles.SelectMany(role => role.Bullets).Where(b => !b.IsProvisional))
+        foreach (var bullet in roles.SelectMany(role => role.Bullets).Where(b => !b.IsProvisional))
         {
             var contextText = bullet.TailoredText ?? bullet.OriginalText;
             pool.Add((new Candidate(CandidateKind.ConfirmedBullet, contextText, null, null), ConfirmedBulletWeight));
@@ -170,50 +198,50 @@ public class DrillService(
         candidate.Kind switch
         {
             CandidateKind.ProvisionalBullet => ("""
-                You are an interview coach preparing a defend-the-claim behavioral question. The
-                candidate's CV includes a claimed accomplishment that hasn't yet been proven out in
-                practice interviews. Ask ONE behavioral question that asks the candidate to walk
-                through this specific experience in real detail — as a real interviewer verifying a
-                claim would, not a generic prompt.
+                                                You are an interview coach preparing a defend-the-claim behavioral question. The
+                                                candidate's CV includes a claimed accomplishment that hasn't yet been proven out in
+                                                practice interviews. Ask ONE behavioral question that asks the candidate to walk
+                                                through this specific experience in real detail — as a real interviewer verifying a
+                                                claim would, not a generic prompt.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Behavioral),
+                                                Return a JSON object matching exactly this shape: { "Prompt": string }
+                                                """, DrillTargetType.Behavioral),
 
             CandidateKind.ProvisionalSkill => ("""
-                You are an interview coach preparing a technical depth-check question. The candidate's
-                CV claims proficiency in a skill that hasn't yet been proven out in practice
-                interviews. Ask ONE technical question that tests real depth in this skill, not just
-                surface familiarity.
+                                               You are an interview coach preparing a technical depth-check question. The candidate's
+                                               CV claims proficiency in a skill that hasn't yet been proven out in practice
+                                               interviews. Ask ONE technical question that tests real depth in this skill, not just
+                                               surface familiarity.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Technical),
+                                               Return a JSON object matching exactly this shape: { "Prompt": string }
+                                               """, DrillTargetType.Technical),
 
             CandidateKind.JdGap => ("""
-                You are an interview coach preparing a gap-probe question. The job description
-                requires a skill the candidate's CV doesn't clearly evidence. Ask ONE question that
-                directly tests the candidate's ability in this skill, framed the way a real
-                interviewer would probe a suspected weak area — not accusatory, just direct.
+                                    You are an interview coach preparing a gap-probe question. The job description
+                                    requires a skill the candidate's CV doesn't clearly evidence. Ask ONE question that
+                                    directly tests the candidate's ability in this skill, framed the way a real
+                                    interviewer would probe a suspected weak area — not accusatory, just direct.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.GapProbe),
+                                    Return a JSON object matching exactly this shape: { "Prompt": string }
+                                    """, DrillTargetType.GapProbe),
 
             CandidateKind.ConfirmedBullet => ("""
-                You are an interview coach preparing a standard behavioral question. Ask ONE
-                "tell me about a time" style behavioral question based on the following CV bullet, so
-                the candidate's confirmed experience stays sharp for real interviews.
+                                              You are an interview coach preparing a standard behavioral question. Ask ONE
+                                              "tell me about a time" style behavioral question based on the following CV bullet, so
+                                              the candidate's confirmed experience stays sharp for real interviews.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Behavioral),
+                                              Return a JSON object matching exactly this shape: { "Prompt": string }
+                                              """, DrillTargetType.Behavioral),
 
             _ => ("""
-                You are an interview coach. Ask ONE general behavioral interview question suitable for
-                a software engineering candidate.
+                  You are an interview coach. Ask ONE general behavioral interview question suitable for
+                  a software engineering candidate.
 
-                Return a JSON object matching exactly this shape: { "Prompt": string }
-                """, DrillTargetType.Behavioral)
+                  Return a JSON object matching exactly this shape: { "Prompt": string }
+                  """, DrillTargetType.Behavioral)
         };
 
-    private enum CandidateKind
+    protected enum CandidateKind
     {
         ProvisionalBullet,
         ProvisionalSkill,
@@ -222,14 +250,18 @@ public class DrillService(
         Fallback
     }
 
-    private record Candidate(CandidateKind Kind, string ContextText, string? RelatedLedgerEntryId, string? RelatedRequirementId);
+    protected sealed record Candidate(
+        CandidateKind Kind,
+        string ContextText,
+        string? RelatedLedgerEntryId,
+        string? RelatedRequirementId);
 
-    private class QuestionCompletion
+    protected sealed class QuestionCompletion
     {
         public string Prompt { get; set; } = string.Empty;
     }
 
-    private class AnswerEvaluationCompletion
+    protected sealed class AnswerEvaluationCompletion
     {
         public DrillOutcome Outcome { get; set; }
         public string Feedback { get; set; } = string.Empty;

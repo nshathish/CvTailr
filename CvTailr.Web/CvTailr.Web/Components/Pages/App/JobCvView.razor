@@ -1,0 +1,134 @@
+@page "/jobs/{JobId}/cv"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@inject IJobsApiClient JobsApiClient
+
+<PageTitle>View Tailored CV</PageTitle>
+
+<div class="mx-auto max-w-3xl space-y-6 px-4 py-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">CV for this job</h1>
+            <p class="mt-1 text-sm text-slate-600">The CV content that would be used for this job's tailoring.</p>
+        </div>
+
+        @if (response is not null)
+        {
+            @if (response.IsTailored)
+            {
+                <span class="inline-flex shrink-0 items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                    Tailored for this job
+                </span>
+            }
+            else
+            {
+                <span class="inline-flex shrink-0 items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    Original — not yet tailored for this job
+                </span>
+            }
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <p class="text-sm text-slate-500">Loading...</p>
+    }
+    else if (errorMessage is not null)
+    {
+        <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+            <p class="font-medium">Couldn't load this job's CV.</p>
+            <p class="mt-1">@errorMessage</p>
+        </div>
+    }
+    else if (response is null)
+    {
+        <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            You haven't uploaded a CV yet.
+            <NavLink href="cv/upload" class="font-medium text-indigo-600 hover:text-indigo-500">Upload one first</NavLink>.
+        </div>
+    }
+    else
+    {
+        <div class="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">Roles</h2>
+            <div class="space-y-4">
+                @foreach (var role in response.Document.Roles)
+                {
+                    <div class="rounded-md border border-slate-100 p-4">
+                        <div class="flex items-baseline justify-between gap-3">
+                            <p class="text-sm font-medium text-slate-900">@role.Title · @role.CompanyName</p>
+                            <p class="shrink-0 text-xs text-slate-500">@FormatDateRange(role.StartDate, role.EndDate)</p>
+                        </div>
+                        <ul class="mt-2 list-disc space-y-1 pl-5">
+                            @foreach (var bullet in role.Bullets)
+                            {
+                                <li class="text-sm text-slate-700">
+                                    @(bullet.TailoredText ?? bullet.OriginalText)
+                                    @if (!string.IsNullOrWhiteSpace(bullet.Language))
+                                    {
+                                        <span class="ml-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">@bullet.Language</span>
+                                    }
+                                    @if (bullet.IsProvisional)
+                                    {
+                                        <span class="ml-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-700">Provisional</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-900">Skills</h2>
+            @if (response.Document.Skills.Count == 0)
+            {
+                <p class="mt-2 text-sm text-slate-500">None detected.</p>
+            }
+            else
+            {
+                <div class="mt-2 flex flex-wrap gap-2">
+                    @foreach (var skill in response.Document.Skills)
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">
+                            @skill.Name
+                            @if (skill.IsProvisional)
+                            {
+                                <span class="rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Provisional</span>
+                            }
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string JobId { get; set; } = string.Empty;
+
+    private bool isLoading = true;
+    private string? errorMessage;
+    private JobCvResponse? response;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            response = await JobsApiClient.GetJobCvAsync(JobId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string FormatDateRange(DateOnly start, DateOnly? end) =>
+        $"{start:MMM yyyy} – {(end.HasValue ? end.Value.ToString("MMM yyyy") : "Present")}";
+}
