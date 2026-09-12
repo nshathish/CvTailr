@@ -85,7 +85,7 @@ public class CvParsingService(
         var completion = await foundryClient.GetStructuredCompletionAsync<CvExtractionCompletion>(
             SystemPrompt,
             rawLatexSource,
-            _foundryOptions.JdParsingDeploymentName,
+            _foundryOptions.CvParsingDeploymentName,
             cancellationToken);
 
         return ValidateAndSanitize(completion);
