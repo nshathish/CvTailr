@@ -131,12 +131,12 @@ public static class TailoringEndpoints
     }
 
     /// <summary>
-    /// Resolves the document tailoring should be based on for a given job: the job's own
-    /// TailoredCvDocument if one already exists (so re-tailoring builds on prior edits, not from
-    /// scratch), otherwise the user's master CvDocument. Returns null if the user has no master CV
-    /// at all and no tailoring has happened yet for this job.
+    /// Resolves the document tailoring (and scoring, per Task 016) should be based on for a given
+    /// job: the job's own TailoredCvDocument if one already exists (so re-tailoring/rescoring
+    /// builds on prior edits, not from scratch), otherwise the user's master CvDocument. Returns
+    /// null if the user has no master CV at all and no tailoring has happened yet for this job.
     /// </summary>
-    private static async Task<CvDocument?> ResolveBaseDocumentAsync(
+    internal static async Task<CvDocument?> ResolveBaseDocumentAsync(
         string userId,
         string jobId,
         ICvRepository cvRepository,

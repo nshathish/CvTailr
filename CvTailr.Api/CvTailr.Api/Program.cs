@@ -25,6 +25,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.Configure<FoundryOptions>(builder.Configuration.GetSection(FoundryOptions.SectionName));
 builder.Services.Configure<EntraIdOptions>(builder.Configuration.GetSection(EntraIdOptions.SectionName));
 builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection(CosmosOptions.SectionName));
+builder.Services.Configure<FirecrawlOptions>(builder.Configuration.GetSection(FirecrawlOptions.SectionName));
 
 var entraId = builder.Configuration.GetSection(EntraIdOptions.SectionName).Get<EntraIdOptions>() ?? new EntraIdOptions();
 
@@ -43,6 +44,14 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IFoundryClient, FoundryClient>();
 builder.Services.AddScoped<IJdParsingService, JdParsingService>();
+builder.Services.AddHttpClient<IJdSourceResolver, FirecrawlJdSourceResolver>((sp, client) =>
+{
+    var firecrawl = sp.GetRequiredService<IOptions<FirecrawlOptions>>().Value;
+    client.BaseAddress = new Uri(firecrawl.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(10);
+    if (!string.IsNullOrWhiteSpace(firecrawl.ApiKey))
+        client.DefaultRequestHeaders.Authorization = new("Bearer", firecrawl.ApiKey);
+});
 builder.Services.AddScoped<ICvParsingService, CvParsingService>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
 builder.Services.AddScoped<ITailoringService, TailoringService>();
