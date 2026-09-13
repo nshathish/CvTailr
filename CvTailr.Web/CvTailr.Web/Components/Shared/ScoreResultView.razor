@@ -13,13 +13,7 @@
         </div>
     </div>
 
-    @{
-        var missingMustHaves = score.RequirementMatches
-            .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
-            .ToList();
-    }
-
-    @if (missingMustHaves.Count > 0)
+    @if (GetMissingMustHaves(score) is { Count: > 0 } missingMustHaves)
     {
         <div class="mt-4 space-y-2 rounded-md border border-red-300 bg-red-50 p-4">
             <h2 class="text-sm font-semibold text-red-900">Missing must-haves</h2>
@@ -71,19 +65,24 @@
 
     <div class="mt-4">
         <NavLink href="@($"jobs/{Job.Id}/tailor")"
-           class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
+                 class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
             Tailor my CV to this job
         </NavLink>
     </div>
 }
 
+
 @code {
-    [Parameter, EditorRequired]
-    public Job Job { get; set; } = null!;
+    [Parameter, EditorRequired] public Job Job { get; set; } = null!;
+
+    private List<RequirementMatch> GetMissingMustHaves(MatchScoreResult score) =>
+        score.RequirementMatches
+            .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
+            .ToList();
 
     private RequirementPriority GetPriority(string requirementId) =>
         Job.JdRequirements.Requirements.FirstOrDefault(r => r.Id == requirementId)?.Priority
-            ?? RequirementPriority.NiceToHave;
+        ?? RequirementPriority.NiceToHave;
 
     private static string GetPriorityBadgeClass(RequirementPriority priority) => priority switch
     {
@@ -102,4 +101,5 @@
         >= 50 => "border-amber-500 text-amber-700",
         _ => "border-red-500 text-red-700"
     };
+
 }
