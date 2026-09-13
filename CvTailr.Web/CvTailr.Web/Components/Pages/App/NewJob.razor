@@ -134,6 +134,12 @@
                 <div class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                     No CV found for your account yet.
                     <NavLink href="cv/upload" class="font-medium text-indigo-600 hover:text-indigo-500">Upload your CV first</NavLink>.
+                    <button
+                        @onclick="RetryScoreAsync"
+                        disabled="@isScoring"
+                        class="ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                        Check again
+                    </button>
                 </div>
             }
 
@@ -142,6 +148,12 @@
                 <div class="mt-4 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
                     <p class="font-medium">Failed to score your CV.</p>
                     <p class="mt-1">@scoreErrorMessage</p>
+                    <button
+                        @onclick="RetryScoreAsync"
+                        disabled="@isScoring"
+                        class="mt-3 inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-red-50 disabled:text-red-400">
+                        Retry
+                    </button>
                 </div>
             }
 
@@ -220,6 +232,7 @@
             if (outcome.CvMissing)
             {
                 cvMissing = true;
+                hasTriggeredScoring = false;
             }
             else
             {
@@ -229,11 +242,18 @@
         catch (Exception ex)
         {
             scoreErrorMessage = ex.Message;
+            hasTriggeredScoring = false;
         }
         finally
         {
             isScoring = false;
         }
+    }
+
+    private Task RetryScoreAsync()
+    {
+        hasTriggeredScoring = false;
+        return ScoreAsync();
     }
 
     private static string GetPriorityBadgeClass(RequirementPriority priority) => priority switch
