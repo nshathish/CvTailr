@@ -136,16 +136,25 @@
         try
         {
             response = await JobsApiClient.GetJobCvAsync(JobId);
-            cv = await CvApiClient.GetCurrentCvAsync();
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
         }
-        finally
+
+        if (response is not null)
         {
-            isLoading = false;
+            try
+            {
+                cv = await CvApiClient.GetCurrentCvAsync();
+            }
+            catch
+            {
+                // Staleness is optional; keep the job CV visible.
+            }
         }
+
+        isLoading = false;
     }
 
     private static string FormatDateRange(DateOnly start, DateOnly? end) =>
