@@ -159,6 +159,10 @@
             {
                 cvMissing = true;
             }
+            else if (outcome.JobMissing)
+            {
+                errorMessage = $"Job '{WorkflowState.CurrentJob.Id}' was not found.";
+            }
             else
             {
                 WorkflowState.CurrentJob = outcome.Job;
