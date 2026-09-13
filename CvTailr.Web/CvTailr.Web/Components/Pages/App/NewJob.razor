@@ -234,6 +234,10 @@
                 cvMissing = true;
                 hasTriggeredScoring = false;
             }
+            else if (outcome.JobMissing)
+            {
+                scoreErrorMessage = $"Job '{WorkflowState.CurrentJob.Id}' was not found.";
+            }
             else
             {
                 WorkflowState.CurrentJob = outcome.Job;

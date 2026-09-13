@@ -14,7 +14,7 @@ public static class ScoringEndpoints
             .WithTags("Score")
             .WithDescription("Scores the current user's persisted CV against a Job's parsed requirements.");
 
-        group.MapPost("/", async Task<Results<Ok<Job>, BadRequest<string>, NotFound<string>>> (
+        group.MapPost("/", async Task<Results<Ok<Job>, BadRequest<string>, NotFound<string>, Conflict<string>>> (
                 ScoreRequest request,
                 IScoringService scoringService,
                 ICvRepository cvRepository,
@@ -33,7 +33,7 @@ public static class ScoringEndpoints
 
                 var cvDocument = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
                 if (cvDocument is null)
-                    return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
+                    return TypedResults.Conflict("No CV found for this user — upload one via /api/cv/upload first.");
 
                 var result = await scoringService.ScoreAsync(job.JdRequirements, cvDocument, cancellationToken);
                 var updatedJob = await jobService.AttachScoreAsync(userId, request.JobId, result, cancellationToken);
