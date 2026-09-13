@@ -13,9 +13,11 @@
         </div>
     </div>
 
-    var missingMustHaves = score.RequirementMatches
-        .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
-        .ToList();
+    @{
+        var missingMustHaves = score.RequirementMatches
+            .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
+            .ToList();
+    }
 
     @if (missingMustHaves.Count > 0)
     {
