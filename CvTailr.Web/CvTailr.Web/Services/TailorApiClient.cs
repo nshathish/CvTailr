@@ -67,4 +67,7 @@ public class TailorApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downs
     }
 }
 
-public record TailorApplyResult(CvDocument CvDocument, Job Job, List<string> Warnings);
+// Mirrors CvTailr.Api's TailoringEndpoints.TailorApplyResponse exactly: the field is
+// TailoredCvDocument (a per-job snapshot), not CvDocument (the master CV) — /api/tailor/apply
+// never returns the master CV, per the "stop mutating the master CV" design (task 012).
+public record TailorApplyResult(TailoredCvDocument TailoredCvDocument, Job Job, List<string> Warnings);

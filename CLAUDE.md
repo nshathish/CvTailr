@@ -138,3 +138,24 @@ provisional state again.
 This is a deliberate design choice, not a limitation to fix later — do
 not "fix" this into a master-CV merge without an explicit, re-discussed
 decision to do so.
+
+### Replacing the master CV never auto-invalidates dependent state (deliberate)
+
+Uploading a new master CV (`/api/cv/upload`) does not clear/revert any
+`Job.MatchScoreResult`, `TailoredCvDocument`, or `LedgerEntry` — those
+stay exactly as they were, now possibly describing a CV that no longer
+exists. `CvDocument.Id` can't detect this on its own (it's preserved
+across a re-upload — see `CvTailr.Api/docs/010-cv-reparse-bullet-id-
+churn.md`); `CvDocument.UpdatedAt` (vs. `MatchScoreResult.ScoredAt` /
+`TailoredCvDocument.CreatedAt`) lets the Web app detect and surface
+staleness, but resolving it is always a manual, user-initiated action
+(re-score), consistent with rule 4's recommend-don't-auto-act pattern.
+
+**There is deliberately no way to "re-base" an already-tailored job's
+`TailoredCvDocument` onto a newly-replaced master CV** — once a job has
+been tailored, its `TailoredCvDocument` evolves independently forever.
+A rebase action is a real future feature (and needs its own design
+decision about what happens to that job's existing `LedgerEntry`
+history when the base document underneath it changes) — not something
+to build speculatively. `JobCvView`'s staleness banner for a tailored
+document is informational only, with no action button, for this reason.

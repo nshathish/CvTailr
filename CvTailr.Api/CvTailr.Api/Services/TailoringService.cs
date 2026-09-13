@@ -228,6 +228,20 @@ public class TailoringService(
                 continue;
             }
 
+            // Idempotency: /api/tailor/apply persists the tailored document, then registers ledger
+            // entries, then marks the Job Tailored — if either of the latter two fails and the
+            // client retries the same approval, this runs again against a document that already has
+            // this bullet applied. Matching by RoleId + proposed text (rather than relying on
+            // CvBullet.Id, which is freshly generated every call) makes a retry a no-op instead of a
+            // duplicate bullet — which would otherwise also produce a duplicate LedgerEntry, since
+            // RegisterProvisionalItemsAsync's dedupe key includes the (newly-generated) bullet id.
+            if (role.Bullets.Any(b => b.OriginalText == newBullet.ProposedText))
+            {
+                warnings.Add(
+                    $"Skipped new bullet {newBullet.Id}: an identical bullet already exists on role {newBullet.RoleId} (likely a retried apply).");
+                continue;
+            }
+
             role.Bullets.Add(new CvBullet
             {
                 OriginalText = newBullet.ProposedText,
@@ -238,6 +252,14 @@ public class TailoringService(
 
         foreach (var newSkill in approvedNewSkills)
         {
+            // Same idempotency reasoning as new bullets above.
+            if (cvDocument.Skills.Any(s => string.Equals(s.Name, newSkill.SkillName, StringComparison.OrdinalIgnoreCase)))
+            {
+                warnings.Add(
+                    $"Skipped new skill {newSkill.Id}: a skill named '{newSkill.SkillName}' already exists (likely a retried apply).");
+                continue;
+            }
+
             cvDocument.Skills.Add(new CvSkill
             {
                 Name = newSkill.SkillName,

@@ -2,6 +2,7 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @inject IJobsApiClient JobsApiClient
+@inject ICvApiClient CvApiClient
 
 <PageTitle>View Tailored CV</PageTitle>
 
@@ -49,6 +50,14 @@
     }
     else
     {
+        @if (IsTailoringStale)
+        {
+            <div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                <p class="font-medium">Your CV has changed since this job was tailored.</p>
+                <p class="mt-1">This tailored version may be out of date.</p>
+            </div>
+        }
+
         <div class="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="text-lg font-semibold text-slate-900">Roles</h2>
             <div class="space-y-4">
@@ -112,12 +121,22 @@
     private bool isLoading = true;
     private string? errorMessage;
     private JobCvResponse? response;
+    private CvDocument? cv;
+
+    // Only meaningful when IsTailored — if it's false, the page is already showing the current
+    // master CV, so there's nothing to be stale. CvId can't detect a since-replaced CV (the master
+    // CvDocument's Id is preserved across re-uploads — see CvTailr.Api/docs/010-cv-reparse-bullet-
+    // id-churn.md), so this compares timestamps instead. Informational only — no action button,
+    // since there's deliberately no "re-base tailoring onto the new master CV" feature yet.
+    private bool IsTailoringStale =>
+        response is { IsTailored: true } && cv is not null && cv.UpdatedAt > response.Document.CreatedAt;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             response = await JobsApiClient.GetJobCvAsync(JobId);
+            cv = await CvApiClient.GetCurrentCvAsync();
         }
         catch (Exception ex)
         {

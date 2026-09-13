@@ -75,6 +75,9 @@ public class LedgerService(
     public Task<List<LedgerEntry>> GetByCvIdAsync(string cvId, CancellationToken cancellationToken = default) =>
         ledgerRepository.GetByCvIdAsync(cvId, cancellationToken);
 
+    public Task<LedgerEntry?> GetByIdAsync(string ledgerEntryId, CancellationToken cancellationToken = default) =>
+        ledgerRepository.GetByIdAsync(ledgerEntryId, cancellationToken);
+
     public Task<List<LedgerEntry>> GetByCvAndJobIdAsync(string cvId, string jobId, CancellationToken cancellationToken = default) =>
         ledgerRepository.GetByCvAndJobIdAsync(cvId, jobId, cancellationToken);
 

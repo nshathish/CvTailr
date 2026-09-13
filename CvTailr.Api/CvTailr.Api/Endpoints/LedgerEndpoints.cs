@@ -47,11 +47,21 @@ public static class LedgerEndpoints
             .WithDescription(
                 "Registers ledger entries for a job's tailored CV's provisional bullets/skills that don't already have one.");
 
-        group.MapGet("/{cvId}", async Task<Ok<List<LedgerEntry>>> (
+        group.MapGet("/{cvId}", async Task<Results<Ok<List<LedgerEntry>>, NotFound<string>>> (
                 string cvId,
                 ILedgerService ledgerService,
+                ICvRepository cvRepository,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
+                var userId = currentUserContext.GetUserId();
+
+                // cvId is caller-supplied and carries no user scoping on its own — verify it's this
+                // user's own master CV before returning anything for it.
+                var masterCv = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+                if (masterCv is null || masterCv.Id != cvId)
+                    return TypedResults.NotFound($"CV '{cvId}' was not found for this user.");
+
                 var entries = await ledgerService.GetByCvIdAsync(cvId, cancellationToken);
                 return TypedResults.Ok(entries);
             })
@@ -88,8 +98,14 @@ public static class LedgerEndpoints
                 string entryId,
                 RecordDrillAttemptRequest request,
                 ILedgerService ledgerService,
+                IJobService jobService,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
+                var userId = currentUserContext.GetUserId();
+                if (await ResolveOwnedEntryAsync(entryId, userId, ledgerService, jobService, cancellationToken) is null)
+                    return TypedResults.NotFound($"LedgerEntry '{entryId}' was not found.");
+
                 var attempt = new DrillAttempt
                 {
                     Outcome = request.Outcome,
@@ -114,8 +130,14 @@ public static class LedgerEndpoints
         group.MapGet("/{entryId}/review", async Task<Results<Ok<LedgerReviewRecommendation>, NotFound<string>>> (
                 string entryId,
                 ILedgerService ledgerService,
+                IJobService jobService,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
+                var userId = currentUserContext.GetUserId();
+                if (await ResolveOwnedEntryAsync(entryId, userId, ledgerService, jobService, cancellationToken) is null)
+                    return TypedResults.NotFound($"LedgerEntry '{entryId}' was not found.");
+
                 try
                 {
                     var recommendation = await ledgerService.ReviewAsync(entryId, cancellationToken);
@@ -134,8 +156,14 @@ public static class LedgerEndpoints
                 string entryId,
                 ConfirmStatusChangeRequest request,
                 ILedgerService ledgerService,
+                IJobService jobService,
+                ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
+                var userId = currentUserContext.GetUserId();
+                if (await ResolveOwnedEntryAsync(entryId, userId, ledgerService, jobService, cancellationToken) is null)
+                    return TypedResults.NotFound($"LedgerEntry '{entryId}' was not found.");
+
                 try
                 {
                     var entry = await ledgerService.ConfirmStatusChangeAsync(entryId, request.NewStatus,
@@ -152,6 +180,29 @@ public static class LedgerEndpoints
             .WithDescription(
                 "Explicitly confirms a ledger status change. Must only be called after user confirmation — never automatically. " +
                 "Confirmed/Removed also update the job's own TailoredCvDocument, never the master CvDocument.");
+    }
+
+    /// <summary>
+    /// A bare entryId carries no user scoping on its own, so every entryId-only route must resolve
+    /// the entry and verify its JobId belongs to a Job owned by the calling user before acting on
+    /// it — otherwise any authenticated caller who learns another user's entry id could read or
+    /// mutate that user's ledger entries (and, for confirm-status, their TailoredCvDocument).
+    /// Returns null if the entry doesn't exist OR doesn't belong to this user — the two cases are
+    /// deliberately indistinguishable to the caller.
+    /// </summary>
+    private static async Task<LedgerEntry?> ResolveOwnedEntryAsync(
+        string entryId,
+        string userId,
+        ILedgerService ledgerService,
+        IJobService jobService,
+        CancellationToken cancellationToken)
+    {
+        var entry = await ledgerService.GetByIdAsync(entryId, cancellationToken);
+        if (entry is null)
+            return null;
+
+        var job = await jobService.GetByIdAsync(userId, entry.JobId, cancellationToken);
+        return job is null ? null : entry;
     }
 }
 

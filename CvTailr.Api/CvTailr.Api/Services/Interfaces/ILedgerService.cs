@@ -15,6 +15,13 @@ public interface ILedgerService
     /// <summary>All entries across all jobs for this CV (partial hierarchical partition key).</summary>
     Task<List<LedgerEntry>> GetByCvIdAsync(string cvId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns null if no entry with this id exists. Endpoints use this to resolve an entry's
+    /// JobId/CvId and authorize it against the calling user before allowing any entryId-only route
+    /// (drill-attempt/review/confirm-status) to act on it — the id alone carries no user scoping.
+    /// </summary>
+    Task<LedgerEntry?> GetByIdAsync(string ledgerEntryId, CancellationToken cancellationToken = default);
+
     /// <summary>Entries for one specific job's tailoring (full hierarchical partition key).</summary>
     Task<List<LedgerEntry>> GetByCvAndJobIdAsync(string cvId, string jobId, CancellationToken cancellationToken = default);
 
