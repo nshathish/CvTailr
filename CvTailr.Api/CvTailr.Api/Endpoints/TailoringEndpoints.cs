@@ -15,7 +15,7 @@ public static class TailoringEndpoints
             .RequireAuthorization()
             .WithTags("Tailor")
             .WithDescription(
-                "Proposes and applies CV tailoring changes against a Job's JD. Proposals never mutate or persist anything — only an explicit apply call, after user approval, updates the CvDocument.");
+                "Proposes and applies CV tailoring changes against a Job's JD. Proposals never mutate or persist anything — only an explicit apply call, after user approval, updates the job's TailoredCvDocument.");
 
         group.MapPost("/propose", async Task<Results<Ok<TailoringProposal>, BadRequest<string>, NotFound<string>>> (
                 TailorProposeRequest request,
