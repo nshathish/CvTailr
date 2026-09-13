@@ -212,8 +212,12 @@
     private async Task GoToStep3Async()
     {
         currentStep = 3;
-        hasTriggeredScoring = false;
-        await ScoreAsync();
+
+        if (WorkflowState.CurrentJob?.MatchScoreResult is null)
+        {
+            hasTriggeredScoring = false;
+            await ScoreAsync();
+        }
     }
 
     private async Task ScoreAsync()
