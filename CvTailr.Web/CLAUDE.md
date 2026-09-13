@@ -3,8 +3,14 @@
 Blazor Web App — the authoring UI for CVTailr. This is where the JD
 gets pasted in, CV gets parsed, scores get reviewed, and tailoring
 proposals get approved/rejected. Talks to `CvTailr.Api` over HTTP/JSON
-only — no project reference to `CvTailr.Api` or `CvTailr.Shared` (per
-root CLAUDE.md's rule that UI-layer projects must stay swappable).
+only — no project reference to `CvTailr.Api`. It DOES hold a direct
+project reference to `CvTailr.Shared` and uses its types (`CvDocument`,
+`Job`, `TailoringProposal`, `TailoredCvDocument`, etc.) throughout —
+see root `CLAUDE.md`'s Architecture section: Shared is meant to be
+reused by any .NET project, and this stays fine as long as Web is
+Blazor. Only a move to a non-.NET UI stack would require dropping the
+reference in favor of local mirrored DTOs, and that's a dedicated
+future migration task, not today's concern.
 
 ## Target
 
@@ -30,36 +36,59 @@ External ID (CIAM) tenant — see `docs/001-entraid-authentication.md` for
 the full implementation. `Pages/App/` is protected by `[Authorize]`
 (enforced via `AuthorizeRouteView` in `Routes.razor`), sign-in/sign-up/
 sign-out all go through `MicrosoftIdentity/Account/*` endpoints, and every
-`ApiClient` request carries a Bearer token acquired via `ITokenAcquisition`.
+typed Api client request carries a Bearer token acquired via
+`ITokenAcquisition` (via `IDownstreamApi`, wired through `ApiClientBase`
+— see below).
 
 ## How this project talks to the Api
 
-- All Api calls go through a single typed `ApiClient` (or similarly
-  named) class wrapping `HttpClient`, registered via
-  `builder.Services.AddHttpClient<ApiClient>(...)` in `Program.cs` with
-  `BaseAddress` read from configuration (`Api:BaseUrl` in
-  `appsettings.json`, pointing at the local Api's `https://localhost:<port>`
-  during this phase).
-- No page/component should construct its own `HttpClient` or call
-  `Api` endpoints directly — always go through `ApiClient`, so the
-  request/response shapes and error handling live in one place.
-- Request/response shapes mirror `CvTailr.Shared` types exactly (JD,
+- One typed client per `CvTailr.Api` endpoint group/`MapGroup`
+  (`IJdApiClient`/`JdApiClient`, `ICvApiClient`/`CvApiClient`,
+  `IJobsApiClient`/`JobsApiClient`, `IScoreApiClient`/`ScoreApiClient`,
+  `ITailorApiClient`/`TailorApiClient`, and so on as new endpoint groups
+  — Ledger, Drill — get Web-side callers). This mirrors the boundary
+  Api itself already committed to (one `Services/` interface per
+  endpoint group there) — a client covering every endpoint group in one
+  fat class is the thing to avoid, not the default to reach for. Each
+  concrete client implements an interface in `Services/Interfaces/`, and
+  pages inject only the interface(s) they actually need via
+  constructor/`@inject` — never the concrete class.
+- All of them derive from `Services/ApiClientBase.cs`, which holds the
+  shared plumbing: `IDownstreamApi` access, the wire-format
+  `JsonSerializerOptions` (camelCase, string enums, matching Api's own
+  `JsonStringEnumConverter` setup), and `ThrowIfUnsuccessfulAsync` for
+  the common "non-success status -> throw `ApiClientException`"
+  pattern. A method needing special status handling (e.g. 404 -> `null`,
+  or a distinct outcome type) checks that itself before calling
+  `ThrowIfUnsuccessfulAsync`.
+- No page/component should construct its own `HttpClient`/call
+  `IDownstreamApi` directly, or call `Api` endpoints outside these
+  typed clients — so request/response shapes and error handling for a
+  given endpoint group stay in one place.
+- Request/response shapes reuse `CvTailr.Shared` types directly (JD,
   CV, MatchScoreResult, TailoringProposal, LedgerEntry, DrillQuestion,
-  etc.) even though this project has no reference to that assembly —
-  redeclare matching DTOs locally in a `Models/` folder here. Keep
-  field names and casing identical to avoid silent (de)serialization
-  mismatches. If the Api's OpenAPI spec is available, prefer generating
-  these DTOs from it rather than hand-typing, if that's easy to set up;
-  otherwise hand-type carefully and note this in code as a
-  spec-generation TODO.
+  etc.) via the project reference — do not hand-declare a parallel
+  local copy of a type that already exists in Shared. Only declare a
+  new type locally, next to the client that returns it (e.g.
+  `ScoreOutcome` in `ScoreApiClient.cs`, `JobCvResponse` in
+  `JobsApiClient.cs`), when the shape is genuinely Web/endpoint-specific
+  and doesn't belong in Shared — a small wrapper/result record that
+  mirrors an Api endpoint's response envelope, not a domain model.
+- Registered individually in `Program.cs`
+  (`AddScoped<IJdApiClient, JdApiClient>()` etc.) — adding a new
+  endpoint group means adding both its client class and its DI
+  registration, not a new method on an existing shared class.
 
 ## Folder layout
 
 CvTailr.Web/
 ├── Program.cs
-├── Models/ -> local DTOs mirroring CvTailr.Shared shapes
 ├── Services/
-│ └── ApiClient.cs -> the one place HTTP calls to CvTailr.Api happen
+│ ├── ApiClientBase.cs -> shared plumbing (auth, JSON options, error handling) for every typed client
+│ ├── ApiClientException.cs
+│ ├── JdApiClient.cs / CvApiClient.cs / JobsApiClient.cs / ScoreApiClient.cs / TailorApiClient.cs -> one per Api endpoint group
+│ ├── Interfaces/ -> IJdApiClient.cs, ICvApiClient.cs, IJobsApiClient.cs, IScoreApiClient.cs, ITailorApiClient.cs
+│ └── WorkflowStateService.cs
 ├── Components/
 │ ├── Pages/ -> routable pages (Jd input, Score review, Tailor review, etc.)
 │ └── Shared/ -> reusable UI pieces (score badge, diff viewer, etc.)
@@ -105,9 +134,14 @@ CvTailr.Web/
 
 - No direct Cosmos, Foundry, or latex-service calls — everything goes
   through `CvTailr.Api`.
-- No project reference to `CvTailr.Api` or `CvTailr.Shared`.
+- No project reference to `CvTailr.Api` (HTTP/JSON only, via the typed
+  Api clients). A reference to `CvTailr.Shared` is fine — see above.
 - No hardcoded Api URLs in components — always via configuration and
-  `ApiClient`.
+  the typed Api clients.
+- No single client covering multiple Api endpoint groups — see "How
+  this project talks to the Api" above. A page needing more than one
+  resource area injects more than one client; that's the expected
+  shape, not a sign to merge them back together.
 
 ## Styling
 

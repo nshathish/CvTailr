@@ -1,6 +1,7 @@
 using CvTailr.Web.Components;
 using CvTailr.Web.Configuration;
 using CvTailr.Web.Services;
+using CvTailr.Web.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.TokenCacheProviders.Distributed;
@@ -28,7 +29,11 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddAntiforgery();
 
-builder.Services.AddScoped<ApiClient>();
+builder.Services.AddScoped<IJdApiClient, JdApiClient>();
+builder.Services.AddScoped<ICvApiClient, CvApiClient>();
+builder.Services.AddScoped<IJobsApiClient, JobsApiClient>();
+builder.Services.AddScoped<IScoreApiClient, ScoreApiClient>();
+builder.Services.AddScoped<ITailorApiClient, TailorApiClient>();
 builder.Services.AddScoped<WorkflowStateService>();
 
 var app = builder.Build();

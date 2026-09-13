@@ -2,7 +2,8 @@ using CvTailr.Api.Services.Interfaces;
 
 namespace CvTailr.Api.Services;
 
-public class CurrentUserContext(IHttpContextAccessor httpContextAccessor) : ICurrentUserContext
+public sealed class CurrentUserContext(IHttpContextAccessor httpContextAccessor) 
+    : ICurrentUserContext
 {
     // Entra sometimes maps the short "oid" claim type to this long URI form depending on
     // JwtBearerOptions.MapInboundClaims — check both so behavior doesn't depend on that setting.
