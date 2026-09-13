@@ -1,3 +1,4 @@
+using CvTailr.Api.Services;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -15,6 +16,7 @@ public static class JdEndpoints
 
         group.MapPost("/parse", async Task<Results<Ok<Job>, BadRequest<string>>> (
                 ParseJdRequest request,
+                IJdSourceResolver jdSourceResolver,
                 IJdParsingService jdParsingService,
                 IJobService jobService,
                 ICurrentUserContext currentUserContext,
@@ -23,8 +25,18 @@ public static class JdEndpoints
                 if (string.IsNullOrWhiteSpace(request.JdText))
                     return TypedResults.BadRequest("jdText is required.");
 
+                string jdText;
+                try
+                {
+                    jdText = await jdSourceResolver.ResolveAsync(request.JdText, cancellationToken);
+                }
+                catch (JdSourceResolutionException ex)
+                {
+                    return TypedResults.BadRequest(ex.Message);
+                }
+
                 var userId = currentUserContext.GetUserId();
-                var jdRequirements = await jdParsingService.ParseAsync(request.JdText, cancellationToken);
+                var jdRequirements = await jdParsingService.ParseAsync(jdText, cancellationToken);
                 var job = await jobService.CreateFromJdAsync(userId, jdRequirements, cancellationToken);
                 return TypedResults.Ok(job);
             })

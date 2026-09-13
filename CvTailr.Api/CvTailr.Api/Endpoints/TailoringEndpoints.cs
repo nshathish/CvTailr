@@ -1,4 +1,5 @@
 using CvTailr.Api.Data.Interfaces;
+using CvTailr.Api.Helpers.Extensions;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Jobs;
@@ -35,8 +36,8 @@ public static class TailoringEndpoints
                 if (job is null)
                     return TypedResults.NotFound($"Job '{request.JobId}' was not found for this user.");
 
-                var baseDocument = await ResolveBaseDocumentAsync(
-                    userId, request.JobId, cvRepository, tailoredCvRepository, cancellationToken);
+                var baseDocument = await tailoredCvRepository.ResolveBaseDocumentAsync(
+                    cvRepository, userId, request.JobId, cancellationToken);
                 if (baseDocument is null)
                     return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
 
@@ -78,7 +79,7 @@ public static class TailoringEndpoints
                 CvDocument baseDocument;
                 if (existingTailoredCv is not null)
                 {
-                    baseDocument = ToCvDocument(existingTailoredCv);
+                    baseDocument = existingTailoredCv.ToCvDocument();
                 }
                 else
                 {
@@ -129,39 +130,6 @@ public static class TailoringEndpoints
                 "CV if none exists yet), persists the result as that job's TailoredCvDocument, registers ledger " +
                 "entries for new provisional content, and marks the Job Tailored. Never modifies the master CV.");
     }
-
-    /// <summary>
-    /// Resolves the document tailoring should be based on for a given job: the job's own
-    /// TailoredCvDocument if one already exists (so re-tailoring builds on prior edits, not from
-    /// scratch), otherwise the user's master CvDocument. Returns null if the user has no master CV
-    /// at all and no tailoring has happened yet for this job.
-    /// </summary>
-    private static async Task<CvDocument?> ResolveBaseDocumentAsync(
-        string userId,
-        string jobId,
-        ICvRepository cvRepository,
-        ITailoredCvRepository tailoredCvRepository,
-        CancellationToken cancellationToken)
-    {
-        var tailoredCv = await tailoredCvRepository.GetByJobIdAsync(jobId, cancellationToken);
-        if (tailoredCv is not null)
-            return ToCvDocument(tailoredCv);
-
-        return await cvRepository.GetByUserIdAsync(userId, cancellationToken);
-    }
-
-    /// <summary>
-    /// TailoredCvDocument and CvDocument share the same Roles/Skills shape, so ITailoringService
-    /// (which operates on "a document" generically) can work against either without duplicating any
-    /// tailoring logic — this just adapts the shape.
-    /// </summary>
-    private static CvDocument ToCvDocument(TailoredCvDocument tailoredCvDocument) => new()
-    {
-        Id = tailoredCvDocument.CvId,
-        UserId = tailoredCvDocument.UserId,
-        Roles = tailoredCvDocument.Roles,
-        Skills = tailoredCvDocument.Skills
-    };
 }
 
 public record TailorProposeRequest(string? JobId);

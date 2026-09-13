@@ -8,29 +8,29 @@
 <PageTitle>New Job</PageTitle>
 
 <div class="mx-auto max-w-3xl px-4 py-8 space-y-8">
-    <WizardStepIndicator CurrentStep="currentStep" Steps="StepLabels" />
+    <WizardStepIndicator CurrentStep="_currentStep" Steps="StepLabels" />
 
     <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        @if (currentStep == 1)
+        @if (_currentStep == 1)
         {
             <h1 class="text-xl font-semibold text-slate-900">Paste a job description</h1>
 
             <div class="mt-4 space-y-3">
                 <textarea
-                    @bind="jdText"
+                    @bind="_jdText"
                     rows="12"
                     placeholder="Paste the raw job description text here..."
                     class="w-full rounded-md border border-slate-300 p-3 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
 
                 <button
                     @onclick="ParseAsync"
-                    disabled="@(isParsing || string.IsNullOrWhiteSpace(jdText))"
+                    disabled="@(_isParsing || string.IsNullOrWhiteSpace(_jdText))"
                     class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
-                    @(isParsing ? "Parsing..." : "Parse")
+                    @(_isParsing ? "Parsing..." : "Parse")
                 </button>
             </div>
 
-            @if (isParsing)
+            @if (_isParsing)
             {
                 <div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
                     <svg class="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
@@ -41,15 +41,15 @@
                 </div>
             }
 
-            @if (parseErrorMessage is not null)
+            @if (_parseErrorMessage is not null)
             {
                 <div class="mt-4 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
                     <p class="font-medium">Failed to parse job description.</p>
-                    <p class="mt-1">@parseErrorMessage</p>
+                    <p class="mt-1">@_parseErrorMessage</p>
                 </div>
             }
         }
-        else if (currentStep == 2 && WorkflowState.CurrentJob is not null)
+        else if (_currentStep == 2 && WorkflowState.CurrentJob is not null)
         {
             var jd = WorkflowState.CurrentJob.JdRequirements;
 
@@ -114,11 +114,11 @@
                 </button>
             </div>
         }
-        else if (currentStep == 3 && WorkflowState.CurrentJob is not null)
+        else if (_currentStep == 3 && WorkflowState.CurrentJob is not null)
         {
             <h1 class="text-xl font-semibold text-slate-900">Match &amp; score</h1>
 
-            @if (isScoring)
+            @if (_isScoring)
             {
                 <div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
                     <svg class="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
@@ -129,7 +129,7 @@
                 </div>
             }
 
-            @if (cvMissing)
+            @if (_cvMissing)
             {
                 <div class="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                     No CV found for your account yet.
@@ -143,7 +143,7 @@
                 </div>
             }
 
-            @if (scoreErrorMessage is not null)
+            @if (_scoreErrorMessage is not null)
             {
                 <div class="mt-4 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
                     <p class="font-medium">Failed to score your CV.</p>
@@ -177,37 +177,37 @@
 @code {
     private static readonly string[] StepLabels = ["Paste JD", "Review details", "Match & score"];
 
-    private int currentStep = 1;
-    private string jdText = string.Empty;
-    private bool isParsing;
-    private string? parseErrorMessage;
-    private bool isScoring;
-    private bool cvMissing;
-    private string? scoreErrorMessage;
-    private bool hasTriggeredScoring;
+    private int _currentStep = 1;
+    private string _jdText = string.Empty;
+    private bool _isParsing;
+    private string? _parseErrorMessage;
+    private bool _isScoring;
+    private bool _cvMissing;
+    private string? _scoreErrorMessage;
+    private bool _hasTriggeredScoring;
 
     private async Task ParseAsync()
     {
-        isParsing = true;
-        parseErrorMessage = null;
+        _isParsing = true;
+        _parseErrorMessage = null;
 
         try
         {
-            var job = await JdApiClient.ParseJdAsync(jdText);
+            var job = await JdApiClient.ParseJdAsync(_jdText);
             WorkflowState.CurrentJob = job;
-            currentStep = 2;
+            _currentStep = 2;
         }
         catch (Exception ex)
         {
-            parseErrorMessage = ex.Message;
+            _parseErrorMessage = ex.Message;
         }
         finally
         {
-            isParsing = false;
+            _isParsing = false;
         }
     }
 
-    private void GoBackToStep1() => currentStep = 1;
+    private void GoBackToStep1() => _currentStep = 1;
 
     private async Task GoToStep3Async()
     {
@@ -222,13 +222,13 @@
 
     private async Task ScoreAsync()
     {
-        if (WorkflowState.CurrentJob is null || hasTriggeredScoring)
+        if (WorkflowState.CurrentJob is null || _hasTriggeredScoring)
             return;
 
-        hasTriggeredScoring = true;
-        isScoring = true;
-        cvMissing = false;
-        scoreErrorMessage = null;
+        _hasTriggeredScoring = true;
+        _isScoring = true;
+        _cvMissing = false;
+        _scoreErrorMessage = null;
 
         try
         {
@@ -254,7 +254,7 @@
         }
         finally
         {
-            isScoring = false;
+            _isScoring = false;
         }
     }
 
