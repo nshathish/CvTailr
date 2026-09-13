@@ -106,11 +106,19 @@
         try
         {
             jobs = await JobsApiClient.GetJobsAsync();
-            cv = await CvApiClient.GetCurrentCvAsync();
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+        }
+
+        try
+        {
+            cv = await CvApiClient.GetCurrentCvAsync();
+        }
+        catch
+        {
+            // The staleness badge is optional; keep the loaded jobs visible.
         }
         finally
         {
