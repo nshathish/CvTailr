@@ -1,4 +1,5 @@
 using CvTailr.Api.Data.Interfaces;
+using CvTailr.Api.Helpers.Extensions;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -34,8 +35,8 @@ public static class ScoringEndpoints
                 if (job is null)
                     return TypedResults.NotFound($"Job '{request.JobId}' was not found for this user.");
 
-                var cvDocument = await TailoringEndpoints.ResolveBaseDocumentAsync(
-                    userId, request.JobId, cvRepository, tailoredCvRepository, cancellationToken);
+                var cvDocument = await tailoredCvRepository.ResolveBaseDocumentAsync(
+                    cvRepository, userId, request.JobId, cancellationToken);
                 if (cvDocument is null)
                     return TypedResults.NotFound("No CV found for this user — upload one via /api/cv/upload first.");
 
