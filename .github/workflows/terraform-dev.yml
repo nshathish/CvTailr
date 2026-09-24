@@ -1,0 +1,58 @@
+name: Terraform Dev
+
+on:
+  pull_request:
+    paths:
+      - "CvTailr.Infra/**"
+      - ".github/workflows/terraform-dev.yml"
+
+  push:
+    branches:
+      - main
+    paths:
+      - "CvTailr.Infra/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    env:
+      TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+
+    defaults:
+      run:
+        working-directory: CvTailr.Infra/environments/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure Login
+        run: az account show
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive ../..
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false
