@@ -7,3 +7,8 @@ variable "web_name" {
   description = "Display name for the Web app registration"
   type        = string
 }
+
+variable "web_redirect_uris" {
+  description = "Redirect URIs for the web app"
+  type        = list(string)
+}
