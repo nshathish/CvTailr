@@ -38,7 +38,9 @@ resource "azuread_application_permission_scope" "access_as_user" {
 resource "azuread_application" "web" {
   display_name     = var.web_name
   sign_in_audience = "AzureADMyOrg"
-
+  api {
+    requested_access_token_version = 2
+  }
   web {
     redirect_uris = var.web_redirect_uris
   }
