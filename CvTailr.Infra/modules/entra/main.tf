@@ -5,13 +5,20 @@ resource "azuread_application" "api" {
   display_name     = var.api_name
   sign_in_audience = "AzureADMyOrg"
 
-  identifier_uris = [
-    "api://${azuread_application.api.client_id}"
-  ]
-
   api {
     requested_access_token_version = 2
   }
+
+  lifecycle {
+    ignore_changes = [
+      identifier_uris
+    ]
+  }
+}
+
+resource "azuread_application_identifier_uri" "api" {
+  application_id = azuread_application.api.id
+  identifier_uri = "api://${azuread_application.api.client_id}"
 }
 
 resource "azuread_application_permission_scope" "access_as_user" {
