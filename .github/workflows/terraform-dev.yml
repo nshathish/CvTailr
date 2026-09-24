@@ -11,15 +11,16 @@ on:
       - main
     paths:
       - "CvTailr.Infra/**"
+      - ".github/workflows/terraform-dev.yml"
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  terraform:
+  plan:
+    name: Terraform Plan
     runs-on: ubuntu-latest
-    environment: dev
 
     env:
       TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
@@ -46,7 +47,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Terraform Format
         run: terraform fmt -check -recursive ../..
@@ -54,5 +55,71 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Plan
+      # PR: show plan only
+      - name: Terraform Plan - Pull Request
+        if: github.event_name == 'pull_request'
         run: terraform plan -input=false
+
+      # Main: save the exact plan that will later be applied
+      - name: Terraform Plan - Main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Show Terraform Plan
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform show -no-color tfplan
+
+      - name: Upload Terraform Plan
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-dev-plan
+          path: CvTailr.Infra/environments/dev/tfplan
+          retention-days: 1
+
+  apply:
+    name: Terraform Apply
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: plan
+
+    runs-on: ubuntu-latest
+
+    # This environment provides the approval gate
+    environment:
+      name: dev
+
+    env:
+      TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+
+    defaults:
+      run:
+        working-directory: CvTailr.Infra/environments/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-dev-plan
+          path: CvTailr.Infra/environments/dev
+
+      - name: Terraform Apply
+        run: terraform apply -input=false tfplan
+
+      - name: Terraform Output
+        run: terraform output
