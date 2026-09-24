@@ -23,7 +23,18 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+      # Terraform state / Azure subscription identity
+      ARM_USE_OIDC: true
+      ARM_USE_AZUREAD: true
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # CvTailr External ID identity
+      TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+
+      TF_IN_AUTOMATION: true
 
     defaults:
       run:
@@ -33,15 +44,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Azure Login
+      - name: Azure Login - Terraform State
         uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Verify Azure Login
-        run: az account show
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -55,12 +63,10 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # PR: show plan only
       - name: Terraform Plan - Pull Request
         if: github.event_name == 'pull_request'
         run: terraform plan -input=false
 
-      # Main: save the exact plan that will later be applied
       - name: Terraform Plan - Main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform plan -input=false -out=tfplan
@@ -84,12 +90,23 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    # This environment provides the approval gate
+    # Approval gate
     environment:
       name: dev
 
     env:
-      TF_VAR_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+      # Terraform state / Azure subscription identity
+      ARM_USE_OIDC: true
+      ARM_USE_AZUREAD: true
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # CvTailr External ID identity
+      TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+
+      TF_IN_AUTOMATION: true
 
     defaults:
       run:
@@ -99,7 +116,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Azure Login
+      - name: Azure Login - Terraform State
         uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
