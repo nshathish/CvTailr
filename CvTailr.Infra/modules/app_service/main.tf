@@ -33,8 +33,11 @@ resource "azurerm_linux_web_app" "web" {
   service_plan_id     = azurerm_service_plan.main.id
   https_only          = true
 
+  client_affinity_enabled = true # ARR sticky sessions, needed for Blazor circuits once you scale out
+
   site_config {
-    always_on = false
+    always_on          = false
+    websockets_enabled = true
     application_stack {
       dotnet_version = "10.0"
     }
