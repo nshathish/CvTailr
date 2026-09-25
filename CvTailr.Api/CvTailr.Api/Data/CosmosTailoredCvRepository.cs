@@ -34,25 +34,6 @@ public class CosmosTailoredCvRepository : ITailoredCvRepository
         return null;
     }
 
-    public async Task<List<string>> GetJobIdsByUserIdAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        // Cross-partition (container is partitioned by /jobId, not /userId) — deliberate, since this
-        // exists specifically to avoid a per-job lookup: one query here replaces what would otherwise
-        // be one GetByJobIdAsync call per Job in the caller's list.
-        var query = new QueryDefinition("SELECT VALUE c.jobId FROM c WHERE c.userId = @userId")
-            .WithParameter("@userId", userId);
-
-        var results = new List<string>();
-        using var iterator = _container.GetItemQueryIterator<string>(query);
-        while (iterator.HasMoreResults)
-        {
-            var page = await iterator.ReadNextAsync(cancellationToken);
-            results.AddRange(page);
-        }
-
-        return results;
-    }
-
     public async Task UpsertAsync(TailoredCvDocument document, CancellationToken cancellationToken = default)
     {
         var existing = await GetByJobIdAsync(document.JobId, cancellationToken);
