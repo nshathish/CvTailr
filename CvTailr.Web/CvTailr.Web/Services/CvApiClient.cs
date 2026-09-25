@@ -7,9 +7,22 @@ namespace CvTailr.Web.Services;
 
 public class CvApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstreamApi), ICvApiClient
 {
-    public async Task<CvDocument> ParseCvAsync(string rawCvText, CancellationToken ct = default)
+    public async Task<CvDocument> ParseCvAsync(
+        Stream? fileStream, string? fileName, string? rawCvText, CancellationToken ct = default)
     {
         const string relativePath = "api/cv/parse";
+
+        using var content = new MultipartFormDataContent();
+        if (fileStream is not null)
+        {
+            content.Add(new StreamContent(fileStream), "cvFile", fileName ?? "cv");
+        }
+
+        if (!string.IsNullOrWhiteSpace(rawCvText))
+        {
+            content.Add(new StringContent(rawCvText), "rawCvText");
+        }
+
         using var response = await DownstreamApi.CallApiForUserAsync(
             ServiceName,
             options =>
@@ -17,7 +30,7 @@ public class CvApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstrea
                 options.HttpMethod = "POST";
                 options.RelativePath = relativePath;
             },
-            content: JsonContent.Create(new { rawCvText }, options: JsonOptions),
+            content: content,
             cancellationToken: ct);
 
         await ThrowIfUnsuccessfulAsync(response, "POST", relativePath, ct);

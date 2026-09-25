@@ -3,6 +3,7 @@
 
 @inject IJobsApiClient JobsApiClient
 @inject ICvApiClient CvApiClient
+@inject NavigationManager NavigationManager
 
 <PageTitle>Your jobs</PageTitle>
 
@@ -111,6 +112,26 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // CV upload lives in exactly one place (cv/upload) — a logged-in user with no CV is sent
+        // there before this page renders anything, rather than duplicating an upload prompt here.
+        // `cv is null` after a call that didn't throw is the real "no CV" signal; a genuine load
+        // failure (caught below) must NOT redirect — it stays best-effort/silent, same as before.
+        var cvLoadFailed = false;
+        try
+        {
+            cv = await CvApiClient.GetCurrentCvAsync();
+        }
+        catch
+        {
+            cvLoadFailed = true;
+        }
+
+        if (cv is null && !cvLoadFailed)
+        {
+            NavigationManager.NavigateTo("cv/upload?reason=required", replace: true);
+            return;
+        }
+
         try
         {
             jobs = await JobsApiClient.GetJobsAsync();
@@ -118,15 +139,6 @@
         catch (Exception ex)
         {
             errorMessage = ex.Message;
-        }
-
-        try
-        {
-            cv = await CvApiClient.GetCurrentCvAsync();
-        }
-        catch
-        {
-            // The staleness badge is optional; keep the loaded jobs visible.
         }
         finally
         {
