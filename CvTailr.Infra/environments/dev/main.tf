@@ -3,20 +3,20 @@ locals {
   web_app_name = "cvtailr-web-dev"
 }
 
-module "entra" {
-  source = "../../modules/entra"
+# The Api/Web Entra App Registrations themselves are now created and managed manually in the
+# portal (see task 002-remove-entra-module) — this only keeps the Web app's redirect URIs in
+# sync via a narrow, non-owning resource, rather than owning the whole application resource.
+data "azuread_application" "web" {
+  client_id = var.entra_web_client_id
+}
 
-  api_name = "CvTailr.Api"
-  web_name = "CvTailr.Web"
+resource "azuread_application_redirect_uris" "web" {
+  application_id = data.azuread_application.web.id
+  type           = "Web"
 
-  # Built from local.web_app_name rather than module.app_service.web_default_hostname: the App
-  # Service's default hostname is deterministic (<app-name>.azurewebsites.net on public Azure),
-  # and referencing the module.app_service *output* here would create a resource cycle — the Web
-  # app's own app_settings (in module.app_service below) depend on this module's outputs
-  # (web_client_id/web_client_secret), so this module cannot also depend on app_service's output.
-  web_redirect_uris = [
+  redirect_uris = [
     "https://localhost:7077/signin-oidc",
-    "https://${local.web_app_name}.azurewebsites.net/signin-oidc"
+    "https://${module.app_service.web_default_hostname}/signin-oidc"
   ]
 }
 
@@ -36,8 +36,8 @@ module "app_service" {
     "Foundry__ScoringDeploymentName"   = var.foundry_scoring_deployment_name
     "AzureAd__Instance"                = var.azuread_instance
     "AzureAd__TenantId"                = var.entra_tenant_id
-    "AzureAd__ClientId"                = module.entra.api_client_id
-    "AzureAd__Audience"                = "api://${module.entra.api_client_id}"
+    "AzureAd__ClientId"                = var.entra_api_client_id
+    "AzureAd__Audience"                = "api://${var.entra_api_client_id}"
     "Firecrawl__BaseUrl"               = "https://api.firecrawl.dev"
     "Firecrawl__ApiKey"                = var.firecrawl_api_key
     "Cosmos__Endpoint"                 = var.cosmos_endpoint
@@ -52,10 +52,10 @@ module "app_service" {
   web_app_settings = {
     "AzureAd__Instance"        = var.azuread_instance
     "AzureAd__TenantId"        = var.entra_tenant_id
-    "AzureAd__ClientId"        = module.entra.web_client_id
-    "AzureAd__ClientSecret"    = module.entra.web_client_secret
+    "AzureAd__ClientId"        = var.entra_web_client_id
+    "AzureAd__ClientSecret"    = var.entra_web_client_secret
     "AzureAd__CallbackPath"    = "/signin-oidc"
     "DownstreamApi__BaseUrl"   = "https://${module.app_service.api_default_hostname}"
-    "DownstreamApi__Scopes__0" = module.entra.api_scope
+    "DownstreamApi__Scopes__0" = "api://${var.entra_api_client_id}/access_as_user"
   }
 }

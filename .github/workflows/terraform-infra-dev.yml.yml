@@ -1,17 +1,17 @@
-name: Deploy Entra Registrations Dev
+name: Terraform Infra Dev
 
 on:
   pull_request:
     paths:
       - "CvTailr.Infra/**"
-      - ".github/workflows/deploy-entra-registraions-dev.yml"
+      - ".github/workflows/terraform-infra-dev.yml"
 
   push:
     branches:
       - main
     paths:
       - "CvTailr.Infra/**"
-      - ".github/workflows/deploy-entra-registraions-dev.yml"
+      - ".github/workflows/terraform-infra-dev.yml"
 
 permissions:
   contents: read

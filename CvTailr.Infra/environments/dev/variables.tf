@@ -6,6 +6,19 @@ variable "entra_client_id" {
   type = string
 }
 
+variable "entra_api_client_id" {
+  type = string
+}
+
+variable "entra_web_client_id" {
+  type = string
+}
+
+variable "entra_web_client_secret" {
+  type      = string
+  sensitive = true
+}
+
 variable "azure_subscription_id" {
   type = string
 }
