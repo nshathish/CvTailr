@@ -9,6 +9,5 @@ public interface ITailoredCvRepository
     /// <summary>One TailoredCvDocument per JobId — always replaces whatever is currently stored for that job.</summary>
     Task UpsertAsync(TailoredCvDocument document, CancellationToken cancellationToken = default);
 
-    /// <summary>No-op if no TailoredCvDocument exists for this jobId.</summary>
     Task DeleteByJobIdAsync(string jobId, CancellationToken cancellationToken = default);
 }
