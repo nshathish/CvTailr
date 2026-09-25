@@ -53,6 +53,7 @@ builder.Services.AddHttpClient<IJdSourceResolver, FirecrawlJdSourceResolver>((sp
         client.DefaultRequestHeaders.Authorization = new("Bearer", firecrawl.ApiKey);
 });
 builder.Services.AddScoped<ICvParsingService, CvParsingService>();
+builder.Services.AddScoped<ICvSourceExtractor, CvSourceExtractor>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
 builder.Services.AddScoped<ITailoringService, TailoringService>();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();

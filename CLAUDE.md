@@ -10,6 +10,7 @@ results back into whether tailored additions stay on the CV.
 Independent projects, each with its own solution/build tooling, living as
 sibling folders in one repo. No shared root .sln. Communication between
 projects is either:
+
 - Direct .NET project reference to `CvTailr.Shared` (any .NET project —
   Api, and currently Web/Blazor and Mobile/MAUI too), or
 - HTTP/JSON against Api's documented (OpenAPI) contract (any non-.NET
@@ -32,6 +33,7 @@ half-do now by avoiding the reference or hand-duplicating types "just
 in case."
 
 Projects:
+
 - `CvTailr.Shared` — core domain models (CvDocument, JdRequirements,
   MatchScoreResult, LedgerEntry). .NET class library.
 - `CvTailr.Api` — .NET 10 Minimal API. The "brain": parsing, scoring,
@@ -95,14 +97,6 @@ Projects:
 - Every subproject may have its own `CLAUDE.md` with project-specific
   detail; this root file holds only cross-cutting context. Check for a
   local `CLAUDE.md` in whichever project folder you're working in.
-- After completing a task (a feature, a bug fix, a diagnostic session),
-  write a short markdown summary of what was done and save it as
-  `docs/<NNN>-<short-description>.md` in whichever project folder the
-  work happened in (e.g. `CvTailr.Api/docs/`). `<NNN>` is a zero-padded,
-  incrementing sequence number — numbering is per-project `docs` folder,
-  not repo-wide, so check the current highest number there first. Match
-  the prose style of existing docs in that folder (symptom/diagnosis/fix/
-  verification-style headers).
 
 ## Known open design decisions
 

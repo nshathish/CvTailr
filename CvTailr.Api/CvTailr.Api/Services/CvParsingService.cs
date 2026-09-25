@@ -20,8 +20,11 @@ public class CvParsingService(
 
     private const string SystemPrompt =
         """
-        You are an expert CV parser. You will be given the raw LaTeX source of a
-        candidate's CV. Extract its content into structured data.
+        You are an expert CV parser. You will be given the raw text content of a
+        candidate's CV — this may be plain text, LaTeX source, or text extracted from a
+        PDF or Word document, and may contain minor extraction artifacts (stray
+        whitespace, broken line breaks, leftover markup) — extract only the meaningful
+        CV content and ignore such artifacts. Extract its content into structured data.
 
         Return a JSON object matching exactly this shape:
         {
@@ -61,12 +64,12 @@ public class CvParsingService(
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
-    public async Task<CvDocument> UploadAndParseAsync(string userId, string rawLatexSource,
+    public async Task<CvDocument> UploadAndParseAsync(string userId, string rawCvSource,
         CancellationToken cancellationToken = default)
     {
-        var document = await ExtractDocumentFromLatexAsync(rawLatexSource, cancellationToken);
+        var document = await ExtractDocumentAsync(rawCvSource, cancellationToken);
         document.UserId = userId;
-        document.RawLatexSource = rawLatexSource;
+        document.RawSourceText = rawCvSource;
 
         await cvRepository.UpsertAsync(document, cancellationToken);
 
@@ -76,15 +79,15 @@ public class CvParsingService(
     public Task<CvDocument?> GetCurrentAsync(string userId, CancellationToken cancellationToken = default) =>
         cvRepository.GetByUserIdAsync(userId, cancellationToken);
 
-    private async Task<CvDocument> ExtractDocumentFromLatexAsync(string rawLatexSource,
+    private async Task<CvDocument> ExtractDocumentAsync(string rawCvSource,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(rawLatexSource))
-            throw new ArgumentException("rawLatexSource is required.", nameof(rawLatexSource));
+        if (string.IsNullOrWhiteSpace(rawCvSource))
+            throw new ArgumentException("rawCvSource is required.", nameof(rawCvSource));
 
         var completion = await foundryClient.GetStructuredCompletionAsync<CvExtractionCompletion>(
             SystemPrompt,
-            rawLatexSource,
+            rawCvSource,
             _foundryOptions.CvParsingDeploymentName,
             cancellationToken);
 
