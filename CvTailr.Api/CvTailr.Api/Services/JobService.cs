@@ -14,7 +14,9 @@ public class JobService(IJobRepository jobRepository) : IJobService
         {
             UserId = userId,
             JdRequirements = jdRequirements,
-            Status = JobStatus.Draft
+            // JobStatus has no "unscored" member — Scored is the earliest of the three lifecycle
+            // stages, so a freshly parsed job starts there until /api/score attaches an actual score.
+            Status = JobStatus.Scored
         };
 
         await jobRepository.UpsertAsync(job, cancellationToken);
@@ -61,4 +63,27 @@ public class JobService(IJobRepository jobRepository) : IJobService
         await jobRepository.DeleteAsync(userId, jobId, cancellationToken);
         return true;
     }
+
+    public async Task<List<JobResponse>> GetResponsesForUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var jobs = await jobRepository.GetByUserIdAsync(userId, cancellationToken);
+        return jobs.Select(ToResponse).ToList();
+    }
+
+    public async Task<JobResponse?> GetResponseByIdAsync(string userId, string jobId, CancellationToken cancellationToken = default)
+    {
+        var job = await jobRepository.GetByIdAsync(userId, jobId, cancellationToken);
+        return job is null ? null : ToResponse(job);
+    }
+
+    private static JobResponse ToResponse(Job job) =>
+        new(
+            job.Id,
+            job.UserId,
+            job.JdRequirements,
+            job.MatchScoreResult,
+            job.Status,
+            PrepSummary: null,
+            job.CreatedAt,
+            job.UpdatedAt);
 }

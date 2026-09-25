@@ -12,7 +12,7 @@ public class Job
 
     public JdRequirements JdRequirements { get; set; } = new();
     public MatchScoreResult? MatchScoreResult { get; set; }
-    public JobStatus Status { get; set; } = JobStatus.Draft;
+    public JobStatus Status { get; set; } = JobStatus.Scored;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

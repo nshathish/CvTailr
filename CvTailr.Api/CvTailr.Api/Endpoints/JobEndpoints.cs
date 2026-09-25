@@ -1,7 +1,6 @@
 using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
-using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CvTailr.Api.Endpoints;
@@ -16,27 +15,27 @@ public static class JobEndpoints
             .WithDescription(
                 "Reads persisted Jobs — one record per JD a user has parsed and scored/tailored against their CV.");
 
-        group.MapGet("/", async Task<Ok<List<Job>>> (
+        group.MapGet("/", async Task<Ok<List<JobResponse>>> (
                 IJobService jobService,
                 ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
                 var userId = currentUserContext.GetUserId();
-                var jobs = await jobService.GetAllForUserAsync(userId, cancellationToken);
+                var jobs = await jobService.GetResponsesForUserAsync(userId, cancellationToken);
                 return TypedResults.Ok(jobs);
             })
             .WithName("GetJobs")
             .WithSummary("Get Jobs")
             .WithDescription("Lists the current user's persisted Jobs, most recently updated first.");
 
-        group.MapGet("/{jobId}", async Task<Results<Ok<Job>, NotFound<string>>> (
+        group.MapGet("/{jobId}", async Task<Results<Ok<JobResponse>, NotFound<string>>> (
                 string jobId,
                 IJobService jobService,
                 ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
                 var userId = currentUserContext.GetUserId();
-                var job = await jobService.GetByIdAsync(userId, jobId, cancellationToken);
+                var job = await jobService.GetResponseByIdAsync(userId, jobId, cancellationToken);
                 return job is null
                     ? TypedResults.NotFound($"Job '{jobId}' was not found for this user.")
                     : TypedResults.Ok(job);
