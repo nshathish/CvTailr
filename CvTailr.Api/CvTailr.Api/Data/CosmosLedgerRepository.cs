@@ -92,4 +92,15 @@ public class CosmosLedgerRepository : ILedgerRepository
         var partitionKey = new PartitionKeyBuilder().Add(entry.CvId).Add(entry.JobId).Build();
         return _container.UpsertItemAsync(entry, partitionKey, cancellationToken: cancellationToken);
     }
+
+    public async Task DeleteByCvAndJobIdAsync(string cvId, string jobId, CancellationToken cancellationToken = default)
+    {
+        var entries = await GetByCvAndJobIdAsync(cvId, jobId, cancellationToken);
+        var partitionKey = new PartitionKeyBuilder().Add(cvId).Add(jobId).Build();
+
+        foreach (var entry in entries)
+        {
+            await _container.DeleteItemAsync<LedgerEntry>(entry.Id, partitionKey, cancellationToken: cancellationToken);
+        }
+    }
 }

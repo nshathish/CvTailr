@@ -14,4 +14,7 @@ public interface ILedgerRepository
 
     Task AddAsync(LedgerEntry entry, CancellationToken cancellationToken = default);
     Task UpdateAsync(LedgerEntry entry, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes every LedgerEntry scoped to this (cvId, jobId) pair. No-op if none exist.</summary>
+    Task DeleteByCvAndJobIdAsync(string cvId, string jobId, CancellationToken cancellationToken = default);
 }

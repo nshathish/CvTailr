@@ -36,7 +36,8 @@ public static class JdEndpoints
                 }
 
                 var userId = currentUserContext.GetUserId();
-                var jdRequirements = await jdParsingService.ParseAsync(jdText, cancellationToken);
+                var jdRequirements = await jdParsingService.ParseAsync(
+                    jdText, request.RoleTitle, request.CompanyName, cancellationToken);
                 var job = await jobService.CreateFromJdAsync(userId, jdRequirements, cancellationToken);
                 return TypedResults.Ok(job);
             })
@@ -46,4 +47,4 @@ public static class JdEndpoints
     }
 }
 
-public record ParseJdRequest(string? JdText);
+public record ParseJdRequest(string? JdText, string? RoleTitle, string? CompanyName);

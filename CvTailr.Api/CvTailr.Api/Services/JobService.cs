@@ -51,4 +51,14 @@ public class JobService(IJobRepository jobRepository) : IJobService
 
     public Task<Job?> GetByIdAsync(string userId, string jobId, CancellationToken cancellationToken = default) =>
         jobRepository.GetByIdAsync(userId, jobId, cancellationToken);
+
+    public async Task<bool> DeleteAsync(string userId, string jobId, CancellationToken cancellationToken = default)
+    {
+        var job = await jobRepository.GetByIdAsync(userId, jobId, cancellationToken);
+        if (job is null)
+            return false;
+
+        await jobRepository.DeleteAsync(userId, jobId, cancellationToken);
+        return true;
+    }
 }

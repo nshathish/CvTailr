@@ -17,4 +17,7 @@ public interface IJobService
     Task<List<Job>> GetAllForUserAsync(string userId, CancellationToken cancellationToken = default);
 
     Task<Job?> GetByIdAsync(string userId, string jobId, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes only the Job record itself. Returns false if no Job with this id exists for this user.</summary>
+    Task<bool> DeleteAsync(string userId, string jobId, CancellationToken cancellationToken = default);
 }

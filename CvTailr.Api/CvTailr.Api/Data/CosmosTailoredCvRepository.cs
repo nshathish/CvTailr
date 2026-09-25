@@ -42,4 +42,13 @@ public class CosmosTailoredCvRepository : ITailoredCvRepository
 
         await _container.UpsertItemAsync(document, new PartitionKey(document.JobId), cancellationToken: cancellationToken);
     }
+
+    public async Task DeleteByJobIdAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        var existing = await GetByJobIdAsync(jobId, cancellationToken);
+        if (existing is null)
+            return;
+
+        await _container.DeleteItemAsync<TailoredCvDocument>(existing.Id, new PartitionKey(jobId), cancellationToken: cancellationToken);
+    }
 }

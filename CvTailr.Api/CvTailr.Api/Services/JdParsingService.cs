@@ -39,7 +39,8 @@ public class JdParsingService(
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
-    public async Task<JdRequirements> ParseAsync(string rawJdText, CancellationToken cancellationToken = default)
+    public async Task<JdRequirements> ParseAsync(string rawJdText, string? roleTitle, string? companyName,
+        CancellationToken cancellationToken = default)
     {
         var result = await foundryClient.GetStructuredCompletionAsync<JdRequirements>(
             SystemPrompt,
@@ -48,6 +49,13 @@ public class JdParsingService(
             cancellationToken);
 
         result.RawJdText = rawJdText;
+
+        if (!string.IsNullOrWhiteSpace(roleTitle))
+            result.RoleTitle = roleTitle.Trim();
+
+        if (!string.IsNullOrWhiteSpace(companyName))
+            result.CompanyName = companyName.Trim();
+
         return result;
     }
 }
