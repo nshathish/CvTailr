@@ -33,6 +33,9 @@ jobs:
       # CvTailr External ID identity
       TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID }}
+      TF_VAR_entra_web_client_secret: ${{ secrets.ENTRA_WEB_CLIENT_SECRET }}
       TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_azuread_instance: ${{ vars.AZUREAD_INSTANCE }}
 
