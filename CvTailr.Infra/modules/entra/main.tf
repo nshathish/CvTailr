@@ -55,6 +55,11 @@ resource "azuread_application" "web" {
   }
 }
 
+resource "azuread_application_password" "web" {
+  application_id = azuread_application.web.id
+  display_name   = "web-client-secret"
+}
+
 resource "azuread_service_principal" "api" {
   client_id = azuread_application.api.client_id
 }

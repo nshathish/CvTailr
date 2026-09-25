@@ -1,0 +1,84 @@
+name: Deploy Api Dev
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "CvTailr.Api/**"
+            - ".github/workflows/deploy-api-dev.yml"
+
+permissions:
+    contents: read
+    id-token: write
+
+env:
+    DOTNET_VERSION: "10.0.x"
+    APP_NAME: cvtailr-api-dev
+    RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+    PROJECT_PATH: CvTailr.Api/CvTailr.Api/CvTailr.Api.csproj
+    PUBLISH_DIR: ${{ github.workspace }}/publish/api
+
+jobs:
+    deploy:
+        name: Build & Deploy Api
+        runs-on: ubuntu-latest
+        environment:
+            name: dev
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            - name: Restore
+              run: dotnet restore ${{ env.PROJECT_PATH }}
+
+            - name: Publish
+              run: >
+                  dotnet publish ${{ env.PROJECT_PATH }}
+                  --configuration Release
+                  --output ${{ env.PUBLISH_DIR }}
+                  --no-restore
+
+            - name: Azure Login
+              uses: azure/login@v3
+              with:
+                  client-id: ${{ vars.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ vars.AZURE_TENANT_ID }}
+                  subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Set App Settings
+              run: |
+                  az webapp config appsettings set \
+                    --name ${{ env.APP_NAME }} \
+                    --resource-group ${{ env.RESOURCE_GROUP }} \
+                    --settings \
+                      Foundry__Endpoint="${{ vars.FOUNDRY_ENDPOINT }}" \
+                      Foundry__ApiKey="${{ secrets.FOUNDRY_API_KEY }}" \
+                      Foundry__CvParsingDeploymentName="${{ vars.FOUNDRY_CV_PARSING_DEPLOYMENT_NAME }}" \
+                      Foundry__JdParsingDeploymentName="${{ vars.FOUNDRY_JD_PARSING_DEPLOYMENT_NAME }}" \
+                      Foundry__ScoringDeploymentName="${{ vars.FOUNDRY_SCORING_DEPLOYMENT_NAME }}" \
+                      AzureAd__Instance="${{ vars.AZUREAD_INSTANCE }}" \
+                      AzureAd__TenantId="${{ vars.ENTRA_TENANT_ID }}" \
+                      AzureAd__ClientId="${{ vars.ENTRA_API_CLIENT_ID }}" \
+                      AzureAd__Audience="api://${{ vars.ENTRA_API_CLIENT_ID }}" \
+                      Firecrawl__BaseUrl="https://api.firecrawl.dev" \
+                      Firecrawl__ApiKey="${{ secrets.FIRECRAWL_API_KEY }}" \
+                      Cosmos__Endpoint="${{ vars.COSMOS_ENDPOINT }}" \
+                      Cosmos__AccountKey="${{ secrets.COSMOS_ACCOUNT_KEY }}" \
+                      Cosmos__DatabaseName="${{ vars.COSMOS_DATABASE_NAME }}" \
+                      Cosmos__ContainerName="${{ vars.COSMOS_CONTAINER_NAME }}" \
+                      Cosmos__CvContainerName="${{ vars.COSMOS_CV_CONTAINER_NAME }}" \
+                      Cosmos__JobContainerName="${{ vars.COSMOS_JOB_CONTAINER_NAME }}" \
+                      Cosmos__TailoredCvContainerName="${{ vars.COSMOS_TAILORED_CV_CONTAINER_NAME }}"
+
+            - name: Deploy to Azure App Service
+              uses: azure/webapps-deploy@v3
+              with:
+                  app-name: ${{ env.APP_NAME }}
+                  package: ${{ env.PUBLISH_DIR }}
