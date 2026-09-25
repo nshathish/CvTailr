@@ -1,0 +1,73 @@
+name: Deploy Web Dev
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "CvTailr.Web/**"
+            - ".github/workflows/deploy-web-dev.yml"
+
+permissions:
+    contents: read
+    id-token: write
+
+env:
+    DOTNET_VERSION: "10.0.x"
+    APP_NAME: cvtailr-web-dev
+    RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+    PROJECT_PATH: CvTailr.Web/CvTailr.Web/CvTailr.Web.csproj
+    PUBLISH_DIR: ${{ github.workspace }}/publish/web
+
+jobs:
+    deploy:
+        name: Build & Deploy Web
+        runs-on: ubuntu-latest
+        environment:
+            name: dev
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            - name: Restore
+              run: dotnet restore ${{ env.PROJECT_PATH }}
+
+            - name: Publish
+              run: >
+                  dotnet publish ${{ env.PROJECT_PATH }}
+                  --configuration Release
+                  --output ${{ env.PUBLISH_DIR }}
+                  --no-restore
+
+            - name: Azure Login
+              uses: azure/login@v3
+              with:
+                  client-id: ${{ vars.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ vars.AZURE_TENANT_ID }}
+                  subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Set App Settings
+              run: |
+                  az webapp config appsettings set \
+                    --name ${{ env.APP_NAME }} \
+                    --resource-group ${{ env.RESOURCE_GROUP }} \
+                    --settings \
+                      AzureAd__Instance="${{ vars.AZUREAD_INSTANCE }}" \
+                      AzureAd__TenantId="${{ vars.ENTRA_CIAM_TENANT_ID }}" \
+                      AzureAd__ClientId="${{ vars.ENTRA_WEB_CLIENT_ID }}" \
+                      AzureAd__ClientSecret="${{ secrets.ENTRA_WEB_CLIENT_SECRET }}" \
+                      AzureAd__CallbackPath="/signin-oidc" \
+                      DownstreamApi__BaseUrl="https://cvtailr-api-dev.azurewebsites.net" \
+                      DownstreamApi__Scopes__0="api://${{ vars.ENTRA_API_CLIENT_ID }}/access_as_user"
+
+            - name: Deploy to Azure App Service
+              uses: azure/webapps-deploy@v3
+              with:
+                  app-name: ${{ env.APP_NAME }}
+                  package: ${{ env.PUBLISH_DIR }}
