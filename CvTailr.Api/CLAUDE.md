@@ -34,6 +34,10 @@ CvTailr.Api/
 │ └── SpeechClient.cs -> wraps Azure AI Speech (STT/TTS)
 ├── Data/
 │ └── CosmosLedgerRepository.cs (+ interface)
+├── Exceptions/
+│ └── one custom exception type per file (e.g. JdSourceResolutionException.cs,
+│   UnsupportedCvFormatException.cs) — caught in the relevant Endpoints/ handler
+│   and mapped to a BadRequest with the exception's (user-safe) message
 ├── tasks/
 └── CvTailr.Api.csproj
 

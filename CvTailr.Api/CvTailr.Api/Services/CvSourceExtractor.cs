@@ -1,4 +1,5 @@
 using System.Text;
+using CvTailr.Api.Exceptions;
 using CvTailr.Api.Services.Interfaces;
 using DocumentFormat.OpenXml.Packaging;
 using UglyToad.PdfPig;

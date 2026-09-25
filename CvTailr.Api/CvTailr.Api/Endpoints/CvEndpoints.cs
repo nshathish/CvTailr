@@ -1,4 +1,4 @@
-using CvTailr.Api.Services;
+using CvTailr.Api.Exceptions;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -17,15 +17,15 @@ public static class CvEndpoints
                 "Parses a candidate's CV (uploaded file or pasted text) into a structured CvDocument and persists exactly one current CV per user.");
 
         group.MapPost("/parse", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
-                IFormFile? CvFile,
-                [FromForm] string? RawCvText,
+                IFormFile? cvFile,
+                [FromForm] string? rawCvText,
                 ICvSourceExtractor cvSourceExtractor,
                 ICvParsingService cvParsingService,
                 ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
-                var hasFile = CvFile is not null;
-                var hasText = !string.IsNullOrWhiteSpace(RawCvText);
+                var hasFile = cvFile is not null;
+                var hasText = !string.IsNullOrWhiteSpace(rawCvText);
 
                 if (!hasFile && !hasText)
                     return TypedResults.BadRequest("either cvFile or rawCvText is required.");
@@ -38,8 +38,8 @@ public static class CvEndpoints
                 {
                     try
                     {
-                        await using var stream = CvFile!.OpenReadStream();
-                        rawCvSource = await cvSourceExtractor.ExtractAsync(stream, CvFile.FileName, cancellationToken);
+                        await using var stream = cvFile!.OpenReadStream();
+                        rawCvSource = await cvSourceExtractor.ExtractAsync(stream, cvFile.FileName, cancellationToken);
                     }
                     catch (UnsupportedCvFormatException ex)
                     {
@@ -48,7 +48,7 @@ public static class CvEndpoints
                 }
                 else
                 {
-                    rawCvSource = RawCvText!;
+                    rawCvSource = rawCvText!;
                 }
 
                 var userId = currentUserContext.GetUserId();

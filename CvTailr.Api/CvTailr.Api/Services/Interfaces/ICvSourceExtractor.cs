@@ -2,8 +2,8 @@ namespace CvTailr.Api.Services.Interfaces;
 
 /// <summary>
 /// Extracts plain text from an uploaded CV file, regardless of source format. Throws
-/// <see cref="UnsupportedCvFormatException"/> for an unrecognized extension or when no
-/// readable text could be extracted.
+/// <see cref="CvTailr.Api.Exceptions.UnsupportedCvFormatException"/> for an unrecognized
+/// extension or when no readable text could be extracted.
 /// </summary>
 public interface ICvSourceExtractor
 {
