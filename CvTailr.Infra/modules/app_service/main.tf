@@ -17,6 +17,7 @@ resource "azurerm_linux_web_app" "api" {
   https_only          = true
 
   site_config {
+    always_on = false
     application_stack {
       dotnet_version = "10.0"
     }
@@ -33,6 +34,7 @@ resource "azurerm_linux_web_app" "web" {
   https_only          = true
 
   site_config {
+    always_on = false
     application_stack {
       dotnet_version = "10.0"
     }
