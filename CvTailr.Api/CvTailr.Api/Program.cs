@@ -2,6 +2,7 @@ using Azure.Identity;
 using CvTailr.Api.Clients;
 using CvTailr.Api.Configuration;
 using CvTailr.Api.Data;
+using CvTailr.Api.Data.Converters;
 using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Endpoints;
 using CvTailr.Api.Services;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,9 +69,12 @@ builder.Services.AddSingleton(sp =>
         // restrictive networks/firewalls and against lightweight emulators that don't expose the
         // Direct-mode TCP port range.
         ConnectionMode = ConnectionMode.Gateway,
-        SerializerOptions = new CosmosSerializationOptions
+        // System.Text.Json (matching the API's own JSON config) rather than the plain
+        // CosmosSerializationOptions path, so JobStatus can go through LegacyJobStatusJsonConverter
+        // and every enum is stored/read as a string instead of Cosmos's default int encoding.
+        UseSystemTextJsonSerializerWithOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+            Converters = { new LegacyJobStatusJsonConverter(), new JsonStringEnumConverter() }
         }
     };
 
