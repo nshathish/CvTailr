@@ -81,3 +81,7 @@ variable "cosmos_job_container_name" {
 variable "cosmos_tailored_cv_container_name" {
   type = string
 }
+
+variable "azure_tenant_id" {
+  type = string
+}
