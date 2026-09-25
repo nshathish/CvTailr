@@ -95,7 +95,6 @@ CvTailr.Web/
 ├── wwwroot/
 └── appsettings.json
 
-
 ## Navigation links
 
 - Use `<NavLink>`, not a plain `<a>`, for links to this app's own Blazor
@@ -129,6 +128,20 @@ CvTailr.Web/
   doesn't silently lose a completed step's output. A simple scoped
   `WorkflowStateService` (in-memory, per-session) is enough for this
   phase — no need for persistence yet.
+
+## Code style — Razor component private fields
+
+Private fields in a component's `@code` block use a leading
+underscore (`_camelCase`), not bare `camelCase`:
+
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private CvDocument? _cv;
+
+Applies to all new/edited `.razor` files going forward. Existing
+components are not required to be retrofitted as a standalone task —
+rename fields incidentally if a component is already being
+substantially edited for another reason, otherwise leave it.
 
 ## What NOT to do here
 

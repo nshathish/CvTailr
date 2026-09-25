@@ -13,15 +13,15 @@
 <div class="mx-auto max-w-3xl px-4 py-8 space-y-6">
     <h1 class="text-2xl font-semibold text-slate-900">Match score</h1>
 
-    @if (isLoadingJob)
+    @if (_isLoadingJob)
     {
         <p class="text-sm text-slate-500">Loading job...</p>
     }
-    else if (jobLoadError is not null)
+    else if (_jobLoadError is not null)
     {
         <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
             <p class="font-medium">Couldn't load that job.</p>
-            <p class="mt-1">@jobLoadError</p>
+            <p class="mt-1">@_jobLoadError</p>
         </div>
     }
     else if (WorkflowState.CurrentJob is null)
@@ -35,12 +35,12 @@
     {
         <button
             @onclick="ScoreAsync"
-            disabled="@isLoading"
+            disabled="@_isLoading"
             class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
-            @(isLoading ? "Scoring..." : (WorkflowState.CurrentJob.MatchScoreResult is null ? "Get My Score" : "Re-score"))
+            @(_isLoading ? "Scoring..." : (WorkflowState.CurrentJob.MatchScoreResult is null ? "Get My Score" : "Re-score"))
         </button>
 
-        @if (isLoading)
+        @if (_isLoading)
         {
             <div class="flex items-center gap-2 text-sm text-slate-500">
                 <svg class="h-4 w-4 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none">
@@ -59,7 +59,7 @@
             </div>
         }
 
-        @if (cvMissing)
+        @if (_cvMissing)
         {
             <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                 No CV found for your account yet.
@@ -67,11 +67,11 @@
             </div>
         }
 
-        @if (errorMessage is not null)
+        @if (_errorMessage is not null)
         {
             <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
                 <p class="font-medium">Failed to score your CV.</p>
-                <p class="mt-1">@errorMessage</p>
+                <p class="mt-1">@_errorMessage</p>
             </div>
         }
 
@@ -80,20 +80,20 @@
 </div>
 
 @code {
-    private bool isLoading;
-    private bool cvMissing;
-    private string? errorMessage;
-    private bool isLoadingJob;
-    private string? jobLoadError;
-    private CvDocument? cv;
+    private bool _isLoading;
+    private bool _cvMissing;
+    private string? _errorMessage;
+    private bool _isLoadingJob;
+    private string? _jobLoadError;
+    private CvDocument? _cv;
 
     // CvId can't detect a since-replaced CV (the master CvDocument's Id is preserved across
     // re-uploads — see CvTailr.Api/docs/010-cv-reparse-bullet-id-churn.md), so this compares
     // timestamps instead. Informational only — never hides or clears the existing score.
     private bool IsScoreStale =>
         WorkflowState.CurrentJob?.MatchScoreResult is not null
-        && cv is not null
-        && cv.UpdatedAt > WorkflowState.CurrentJob.MatchScoreResult.ScoredAt;
+        && _cv is not null
+        && _cv.UpdatedAt > WorkflowState.CurrentJob.MatchScoreResult.ScoredAt;
 
     protected override async Task OnInitializedAsync()
     {
@@ -106,13 +106,13 @@
 
         if (!string.IsNullOrWhiteSpace(jobId) && WorkflowState.CurrentJob?.Id != jobId)
         {
-            isLoadingJob = true;
+            _isLoadingJob = true;
             try
             {
                 var job = await JobsApiClient.GetJobByIdAsync(jobId);
                 if (job is null)
                 {
-                    jobLoadError = $"Job '{jobId}' was not found.";
+                    _jobLoadError = $"Job '{jobId}' was not found.";
                 }
                 else
                 {
@@ -121,11 +121,11 @@
             }
             catch (Exception ex)
             {
-                jobLoadError = ex.Message;
+                _jobLoadError = ex.Message;
             }
             finally
             {
-                isLoadingJob = false;
+                _isLoadingJob = false;
             }
         }
 
@@ -133,7 +133,7 @@
         {
             try
             {
-                cv = await CvApiClient.GetCurrentCvAsync();
+                _cv = await CvApiClient.GetCurrentCvAsync();
             }
             catch
             {
@@ -148,20 +148,20 @@
         if (WorkflowState.CurrentJob is null)
             return;
 
-        isLoading = true;
-        errorMessage = null;
-        cvMissing = false;
+        _isLoading = true;
+        _errorMessage = null;
+        _cvMissing = false;
 
         try
         {
             var outcome = await ScoreApiClient.GetScoreAsync(WorkflowState.CurrentJob.Id);
             if (outcome.CvMissing)
             {
-                cvMissing = true;
+                _cvMissing = true;
             }
             else if (outcome.JobMissing)
             {
-                errorMessage = $"Job '{WorkflowState.CurrentJob.Id}' was not found.";
+                _errorMessage = $"Job '{WorkflowState.CurrentJob.Id}' was not found.";
             }
             else
             {
@@ -170,11 +170,11 @@
         }
         catch (Exception ex)
         {
-            errorMessage = ex.Message;
+            _errorMessage = ex.Message;
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 }
