@@ -10,4 +10,6 @@ public interface IJobRepository
     Task<List<Job>> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default);
 
     Task UpsertAsync(Job job, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(string userId, string jobId, CancellationToken cancellationToken = default);
 }

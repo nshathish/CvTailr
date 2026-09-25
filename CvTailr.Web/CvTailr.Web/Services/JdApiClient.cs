@@ -6,7 +6,7 @@ namespace CvTailr.Web.Services;
 
 public class JdApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstreamApi), IJdApiClient
 {
-    public async Task<Job> ParseJdAsync(string jdText, CancellationToken ct = default)
+    public async Task<Job> ParseJdAsync(string jdText, string? roleTitle, string? companyName, CancellationToken ct = default)
     {
         const string relativePath = "api/jd/parse";
         using var response = await DownstreamApi.CallApiForUserAsync(
@@ -16,7 +16,7 @@ public class JdApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstrea
                 options.HttpMethod = "POST";
                 options.RelativePath = relativePath;
             },
-            content: JsonContent.Create(new { jdText }, options: JsonOptions),
+            content: JsonContent.Create(new { jdText, roleTitle, companyName }, options: JsonOptions),
             cancellationToken: ct);
 
         await ThrowIfUnsuccessfulAsync(response, "POST", relativePath, ct);

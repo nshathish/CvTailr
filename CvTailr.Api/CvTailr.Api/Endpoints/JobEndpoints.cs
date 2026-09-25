@@ -84,6 +84,42 @@ public static class JobEndpoints
             .WithDescription(
                 "Returns this job's tailored CV if one exists (IsTailored: true), otherwise the master CV as a " +
                 "preview of what would be tailored (IsTailored: false). The master CV is never modified.");
+
+        group.MapDelete("/{jobId}", async Task<Results<NoContent, NotFound<string>>> (
+                string jobId,
+                IJobService jobService,
+                ICvRepository cvRepository,
+                ITailoredCvRepository tailoredCvRepository,
+                ILedgerRepository ledgerRepository,
+                ICurrentUserContext currentUserContext,
+                CancellationToken cancellationToken) =>
+            {
+                var userId = currentUserContext.GetUserId();
+
+                // Resolve cvId (the master CV's Id) BEFORE deleting the Job, since ledger
+                // entries are scoped by (cvId, jobId) and this is the only place that id is
+                // available — CvId is never stored on Job itself. CvDocument.Id is stable
+                // across re-uploads, so this correctly matches whatever cvId this job's
+                // ledger entries (if any) were registered under, even if the CV has since
+                // been replaced.
+                var masterCv = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+
+                var deleted = await jobService.DeleteAsync(userId, jobId, cancellationToken);
+                if (!deleted)
+                    return TypedResults.NotFound($"Job '{jobId}' was not found for this user.");
+
+                await tailoredCvRepository.DeleteByJobIdAsync(jobId, cancellationToken);
+
+                if (masterCv is not null)
+                    await ledgerRepository.DeleteByCvAndJobIdAsync(masterCv.Id, jobId, cancellationToken);
+
+                return TypedResults.NoContent();
+            })
+            .WithName("DeleteJob")
+            .WithSummary("Delete Job")
+            .WithDescription(
+                "Deletes a Job and cascades to its TailoredCvDocument and LedgerEntry records " +
+                "scoped to that job. The master CvDocument is never touched.");
     }
 }
 

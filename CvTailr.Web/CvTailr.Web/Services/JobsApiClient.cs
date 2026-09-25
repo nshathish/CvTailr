@@ -71,6 +71,21 @@ public class JobsApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstr
         var result = await response.Content.ReadFromJsonAsync<List<Job>>(JsonOptions, ct);
         return result ?? throw new ApiClientException($"GET /{relativePath} returned an empty response body.");
     }
+
+    public async Task DeleteJobAsync(string jobId, CancellationToken ct = default)
+    {
+        var relativePath = $"api/jobs/{Uri.EscapeDataString(jobId)}";
+        using var response = await DownstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "DELETE";
+                options.RelativePath = relativePath;
+            },
+            cancellationToken: ct);
+
+        await ThrowIfUnsuccessfulAsync(response, "DELETE", relativePath, ct);
+    }
 }
 
 // Mirrors CvTailr.Api's JobEndpoints.JobCvResponse exactly (Document, IsTailored). Reuses

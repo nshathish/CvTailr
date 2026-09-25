@@ -48,4 +48,7 @@ public class CosmosJobRepository : IJobRepository
 
     public Task UpsertAsync(Job job, CancellationToken cancellationToken = default) =>
         _container.UpsertItemAsync(job, new PartitionKey(job.UserId), cancellationToken: cancellationToken);
+
+    public Task DeleteAsync(string userId, string jobId, CancellationToken cancellationToken = default) =>
+        _container.DeleteItemAsync<Job>(jobId, new PartitionKey(userId), cancellationToken: cancellationToken);
 }

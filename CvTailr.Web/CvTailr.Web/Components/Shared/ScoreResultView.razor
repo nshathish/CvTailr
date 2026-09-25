@@ -63,17 +63,19 @@
         </div>
     </div>
 
-    <div class="mt-4">
+    <div class="mt-4 flex items-center gap-4">
         <NavLink href="@($"jobs/{Job.Id}/tailor")"
                  class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
             @GetTailorCtaLabel(score.OverallScorePercent)
         </NavLink>
+        @ExtraActions
     </div>
 }
 
 
 @code {
     [Parameter, EditorRequired] public Job Job { get; set; } = null!;
+    [Parameter] public RenderFragment? ExtraActions { get; set; }
 
     private List<RequirementMatch> GetMissingMustHaves(MatchScoreResult score) =>
         score.RequirementMatches
