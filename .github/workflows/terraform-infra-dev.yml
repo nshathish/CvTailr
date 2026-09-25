@@ -1,17 +1,17 @@
-name: Deploy Entra Registrations Dev
+name: Terraform Infra Dev
 
 on:
   pull_request:
     paths:
       - "CvTailr.Infra/**"
-      - ".github/workflows/deploy-entra-registraions-dev.yml"
+      - ".github/workflows/terraform-infra-dev.yml"
 
   push:
     branches:
       - main
     paths:
       - "CvTailr.Infra/**"
-      - ".github/workflows/deploy-entra-registraions-dev.yml"
+      - ".github/workflows/terraform-infra-dev.yml"
 
 permissions:
   contents: read
@@ -22,18 +22,27 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-latest
 
+    environment:
+      name: dev
+
     env:
-      # Terraform state / Azure subscription identity
+      # Terraform state / Azure subscription identity (shared deployment identity, repo-level)
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # CvTailr External ID identity
-      TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
-      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+      # CvTailr External ID (CIAM) deployment identity — shared, repo-level
+      TF_VAR_entra_client_id: ${{ vars.ENTRA_CIAM_CLIENT_ID }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_CIAM_TENANT_ID }}
       TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
+
+      # Per-environment app config — from the "dev" environment
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID }}
+      TF_VAR_entra_web_client_secret: ${{ secrets.ENTRA_WEB_CLIENT_SECRET }}
       TF_VAR_azuread_instance: ${{ vars.AZUREAD_INSTANCE }}
 
       # Azure AI Foundry
@@ -104,28 +113,41 @@ jobs:
           path: CvTailr.Infra/environments/dev/tfplan
           retention-days: 1
 
+  approve:
+    name: Approval Gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: plan
+    runs-on: ubuntu-latest
+
+    # This environment holds NO variables/secrets — it exists purely to carry the
+    # required-reviewer protection rule, separately from the "dev" environment's
+    # actual config values (which "plan" and "apply" need to read without pausing).
+    environment:
+      name: dev-approval
+
+    steps:
+      - name: Approved
+        run: echo "Approved for apply."
+
   apply:
     name: Terraform Apply
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: plan
+    needs: approve
 
     runs-on: ubuntu-latest
 
-    # Approval gate
     environment:
       name: dev
 
     env:
-      # Terraform state / Azure subscription identity
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # CvTailr External ID identity
-      TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
-      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+      TF_VAR_entra_client_id: ${{ vars.ENTRA_CIAM_CLIENT_ID }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_CIAM_TENANT_ID }}
 
       TF_IN_AUTOMATION: true
 
