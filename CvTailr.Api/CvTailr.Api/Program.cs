@@ -46,11 +46,11 @@ builder.Services.AddScoped<IFoundryClient, FoundryClient>();
 builder.Services.AddScoped<IJdParsingService, JdParsingService>();
 builder.Services.AddHttpClient<IJdSourceResolver, FirecrawlJdSourceResolver>((sp, client) =>
 {
-    var firecrawl = sp.GetRequiredService<IOptions<FirecrawlOptions>>().Value;
-    client.BaseAddress = new Uri(firecrawl.BaseUrl);
+    var fireCrawl = sp.GetRequiredService<IOptions<FirecrawlOptions>>().Value;
+    client.BaseAddress = new Uri(fireCrawl.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(10);
-    if (!string.IsNullOrWhiteSpace(firecrawl.ApiKey))
-        client.DefaultRequestHeaders.Authorization = new("Bearer", firecrawl.ApiKey);
+    if (!string.IsNullOrWhiteSpace(fireCrawl.ApiKey))
+        client.DefaultRequestHeaders.Authorization = new("Bearer", fireCrawl.ApiKey);
 });
 builder.Services.AddScoped<ICvParsingService, CvParsingService>();
 builder.Services.AddScoped<ICvSourceExtractor, CvSourceExtractor>();
