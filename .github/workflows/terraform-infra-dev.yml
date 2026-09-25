@@ -2,9 +2,9 @@ name: Terraform Infra Dev
 
 on:
   pull_request:
-    paths:
-      - "CvTailr.Infra/**"
-      - ".github/workflows/terraform-infra-dev.yml"
+    # No path filter here — this workflow must always trigger so the
+    # required "Terraform Plan" check can report a status on every PR
+    # (see the "gate" job below for how non-infra PRs skip cleanly).
 
   push:
     branches:
@@ -18,44 +18,54 @@ permissions:
   id-token: write
 
 jobs:
-  plan:
+  gate:
     name: Terraform Plan
+    runs-on: ubuntu-latest
+    outputs:
+      infra_changed: ${{ steps.filter.outputs.infra }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect infra changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            infra:
+              - 'CvTailr.Infra/**'
+              - '.github/workflows/terraform-infra-dev.yml'
+
+  plan:
+    name: Terraform Plan (run)
+    needs: gate
+    if: needs.gate.outputs.infra_changed == 'true'
     runs-on: ubuntu-latest
 
     environment:
       name: dev
 
     env:
-      # Terraform state / Azure subscription identity (shared deployment identity, repo-level)
+      # (unchanged — same full env block as before)
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      # CvTailr External ID (CIAM) deployment identity — shared, repo-level
       TF_VAR_entra_client_id: ${{ vars.ENTRA_CIAM_CLIENT_ID }}
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_CIAM_TENANT_ID }}
       TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
-
-      # Per-environment app config — from the "dev" environment
       TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID }}
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID }}
       TF_VAR_entra_web_client_secret: ${{ secrets.ENTRA_WEB_CLIENT_SECRET }}
       TF_VAR_azuread_instance: ${{ vars.AZUREAD_INSTANCE }}
-
-      # Azure AI Foundry
       TF_VAR_foundry_endpoint: ${{ vars.FOUNDRY_ENDPOINT }}
       TF_VAR_foundry_api_key: ${{ secrets.FOUNDRY_API_KEY }}
       TF_VAR_foundry_cv_parsing_deployment_name: ${{ vars.FOUNDRY_CV_PARSING_DEPLOYMENT_NAME }}
       TF_VAR_foundry_jd_parsing_deployment_name: ${{ vars.FOUNDRY_JD_PARSING_DEPLOYMENT_NAME }}
       TF_VAR_foundry_scoring_deployment_name: ${{ vars.FOUNDRY_SCORING_DEPLOYMENT_NAME }}
-
-      # Firecrawl
       TF_VAR_firecrawl_api_key: ${{ secrets.FIRECRAWL_API_KEY }}
-
-      # Cosmos DB
       TF_VAR_cosmos_endpoint: ${{ vars.COSMOS_ENDPOINT }}
       TF_VAR_cosmos_account_key: ${{ secrets.COSMOS_ACCOUNT_KEY }}
       TF_VAR_cosmos_database_name: ${{ vars.COSMOS_DATABASE_NAME }}
@@ -63,7 +73,6 @@ jobs:
       TF_VAR_cosmos_cv_container_name: ${{ vars.COSMOS_CV_CONTAINER_NAME }}
       TF_VAR_cosmos_job_container_name: ${{ vars.COSMOS_JOB_CONTAINER_NAME }}
       TF_VAR_cosmos_tailored_cv_container_name: ${{ vars.COSMOS_TAILORED_CV_CONTAINER_NAME }}
-
       TF_IN_AUTOMATION: true
 
     defaults:
@@ -118,13 +127,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: plan
     runs-on: ubuntu-latest
-
-    # This environment holds NO variables/secrets — it exists purely to carry the
-    # required-reviewer protection rule, separately from the "dev" environment's
-    # actual config values (which "plan" and "apply" need to read without pausing).
     environment:
       name: dev-approval
-
     steps:
       - name: Approved
         run: echo "Approved for apply."
@@ -133,53 +137,40 @@ jobs:
     name: Terraform Apply
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: approve
-
     runs-on: ubuntu-latest
-
     environment:
       name: dev
-
     env:
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
       TF_VAR_entra_client_id: ${{ vars.ENTRA_CIAM_CLIENT_ID }}
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_CIAM_TENANT_ID }}
-
       TF_IN_AUTOMATION: true
-
     defaults:
       run:
         working-directory: CvTailr.Infra/environments/dev
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Azure Login - Terraform State
         uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
       - name: Terraform Init
         run: terraform init -input=false -reconfigure
-
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-dev-plan
           path: CvTailr.Infra/environments/dev
-
       - name: Terraform Apply
         run: terraform apply -input=false tfplan
-
       - name: Terraform Output
         run: terraform output
