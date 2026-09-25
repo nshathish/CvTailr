@@ -12,7 +12,7 @@
             <p class="mt-1 text-sm text-slate-600">The full parsed content currently on file.</p>
         </div>
 
-        @if (cv is not null)
+        @if (_cv is not null)
         {
             <NavLink href="cv/upload"
                class="inline-flex shrink-0 items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
@@ -21,18 +21,18 @@
         }
     </div>
 
-    @if (isLoading)
+    @if (_isLoading)
     {
         <p class="text-sm text-slate-500">Loading...</p>
     }
-    else if (errorMessage is not null)
+    else if (_errorMessage is not null)
     {
         <div class="rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
             <p class="font-medium">Couldn't load your CV.</p>
-            <p class="mt-1">@errorMessage</p>
+            <p class="mt-1">@_errorMessage</p>
         </div>
     }
-    else if (cv is null)
+    else if (_cv is null)
     {
         <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
             You haven't uploaded a CV yet.
@@ -44,7 +44,7 @@
         <div class="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="text-lg font-semibold text-slate-900">Roles</h2>
             <div class="space-y-4">
-                @foreach (var role in cv.Roles)
+                @foreach (var role in _cv.Roles)
                 {
                     <div class="rounded-md border border-slate-100 p-4">
                         <div class="flex items-baseline justify-between gap-3">
@@ -74,14 +74,14 @@
 
         <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="text-lg font-semibold text-slate-900">Skills</h2>
-            @if (cv.Skills.Count == 0)
+            @if (_cv.Skills.Count == 0)
             {
                 <p class="mt-2 text-sm text-slate-500">None detected.</p>
             }
             else
             {
                 <div class="mt-2 flex flex-wrap gap-2">
-                    @foreach (var skill in cv.Skills)
+                    @foreach (var skill in _cv.Skills)
                     {
                         <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">
                             @skill.Name
@@ -98,23 +98,23 @@
 </div>
 
 @code {
-    private bool isLoading = true;
-    private string? errorMessage;
-    private CvDocument? cv;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private CvDocument? _cv;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            cv = await CvApiClient.GetCurrentCvAsync();
+            _cv = await CvApiClient.GetCurrentCvAsync();
         }
         catch (Exception ex)
         {
-            errorMessage = ex.Message;
+            _errorMessage = ex.Message;
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 

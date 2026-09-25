@@ -23,18 +23,18 @@
         </NavLink>
     </div>
 
-    @if (isLoading)
+    @if (_isLoading)
     {
         <p class="mt-8 text-sm text-slate-500">Loading your jobs...</p>
     }
-    else if (errorMessage is not null)
+    else if (_errorMessage is not null)
     {
         <div class="mt-8 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
             <p class="font-medium">Couldn't load your jobs.</p>
-            <p class="mt-1">@errorMessage</p>
+            <p class="mt-1">@_errorMessage</p>
         </div>
     }
-    else if (jobs.Count == 0)
+    else if (_jobs.Count == 0)
     {
         <div class="mt-12 flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-16 text-center">
             <h2 class="text-lg font-semibold text-slate-900">No jobs yet</h2>
@@ -53,7 +53,7 @@
     else
     {
         <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            @foreach (var job in jobs)
+            @foreach (var job in _jobs)
             {
                 <NavLink href="@($"score?jobId={job.Id}")"
                    class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
@@ -105,10 +105,10 @@
 </div>
 
 @code {
-    private bool isLoading = true;
-    private string? errorMessage;
-    private List<Job> jobs = new();
-    private CvDocument? cv;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private List<Job> _jobs = new();
+    private CvDocument? _cv;
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,14 +119,14 @@
         var cvLoadFailed = false;
         try
         {
-            cv = await CvApiClient.GetCurrentCvAsync();
+            _cv = await CvApiClient.GetCurrentCvAsync();
         }
         catch
         {
             cvLoadFailed = true;
         }
 
-        if (cv is null && !cvLoadFailed)
+        if (_cv is null && !cvLoadFailed)
         {
             NavigationManager.NavigateTo("cv/upload?reason=required", replace: true);
             return;
@@ -134,15 +134,15 @@
 
         try
         {
-            jobs = await JobsApiClient.GetJobsAsync();
+            _jobs = await JobsApiClient.GetJobsAsync();
         }
         catch (Exception ex)
         {
-            errorMessage = ex.Message;
+            _errorMessage = ex.Message;
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
@@ -150,7 +150,7 @@
     // re-uploads — see CvTailr.Api/docs/010-cv-reparse-bullet-id-churn.md), so this compares
     // timestamps instead. Informational only — never hides or clears the existing score.
     private bool IsScoreStale(Job job) =>
-        job.MatchScoreResult is not null && cv is not null && cv.UpdatedAt > job.MatchScoreResult.ScoredAt;
+        job.MatchScoreResult is not null && _cv is not null && _cv.UpdatedAt > job.MatchScoreResult.ScoredAt;
 
     private static int GetMatchedCount(MatchScoreResult result) =>
         result.RequirementMatches.Count(m => m.IsMet);
