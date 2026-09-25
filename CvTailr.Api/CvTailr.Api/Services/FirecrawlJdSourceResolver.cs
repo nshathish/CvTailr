@@ -1,4 +1,5 @@
 using System.Text.Json;
+using CvTailr.Api.Exceptions;
 using CvTailr.Api.Services.Interfaces;
 
 namespace CvTailr.Api.Services;

@@ -1,6 +1,8 @@
+using CvTailr.Api.Exceptions;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CvTailr.Api.Endpoints;
 
@@ -12,25 +14,54 @@ public static class CvEndpoints
             .RequireAuthorization()
             .WithTags("Cv")
             .WithDescription(
-                "Parses a candidate's raw LaTeX CV into a structured CvDocument and persists exactly one current CV per user.");
+                "Parses a candidate's CV (uploaded file or pasted text) into a structured CvDocument and persists exactly one current CV per user.");
 
         group.MapPost("/parse", async Task<Results<Ok<CvDocument>, BadRequest<string>>> (
-                UploadCvRequest request,
+                IFormFile? cvFile,
+                [FromForm] string? rawCvText,
+                ICvSourceExtractor cvSourceExtractor,
                 ICvParsingService cvParsingService,
                 ICurrentUserContext currentUserContext,
                 CancellationToken cancellationToken) =>
             {
-                if (string.IsNullOrWhiteSpace(request.RawLatexSource))
-                    return TypedResults.BadRequest("rawLatexSource is required.");
+                var hasFile = cvFile is not null;
+                var hasText = !string.IsNullOrWhiteSpace(rawCvText);
+
+                if (!hasFile && !hasText)
+                    return TypedResults.BadRequest("either cvFile or rawCvText is required.");
+
+                if (hasFile && hasText)
+                    return TypedResults.BadRequest("provide either cvFile or rawCvText, not both.");
+
+                string rawCvSource;
+                if (hasFile)
+                {
+                    try
+                    {
+                        await using var stream = cvFile!.OpenReadStream();
+                        rawCvSource = await cvSourceExtractor.ExtractAsync(stream, cvFile.FileName, cancellationToken);
+                    }
+                    catch (UnsupportedCvFormatException ex)
+                    {
+                        return TypedResults.BadRequest(ex.Message);
+                    }
+                }
+                else
+                {
+                    rawCvSource = rawCvText!;
+                }
 
                 var userId = currentUserContext.GetUserId();
-                var result = await cvParsingService.UploadAndParseAsync(userId, request.RawLatexSource, cancellationToken);
+                var result = await cvParsingService.UploadAndParseAsync(userId, rawCvSource, cancellationToken);
                 return TypedResults.Ok(result);
             })
             .WithName("UploadCv")
             .WithSummary("Upload CV")
             .WithDescription(
-                "Uploads/replaces the current user's CV: parses raw LaTeX source into a structured CvDocument and persists it.");
+                "Uploads/replaces the current user's CV: extracts text from an uploaded file (.pdf/.docx/.txt/.tex) or " +
+                "uses pasted text directly, parses it into a structured CvDocument via the existing Foundry step, and " +
+                "persists it.")
+            .DisableAntiforgery();
 
         group.MapGet("/current", async Task<Results<Ok<CvDocument>, NotFound<string>>> (
                 ICvParsingService cvParsingService,
@@ -48,5 +79,3 @@ public static class CvEndpoints
             .WithDescription("Returns the current user's persisted CvDocument.");
     }
 }
-
-public record UploadCvRequest(string? RawLatexSource);

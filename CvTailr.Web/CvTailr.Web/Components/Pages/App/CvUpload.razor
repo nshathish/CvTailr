@@ -205,13 +205,13 @@
 
         try
         {
-            string rawLatexSource;
+            string rawCvText;
             string sourceLabel;
 
             if (selectedFile is not null)
             {
                 using var reader = new StreamReader(selectedFile.OpenReadStream(MaxFileSizeBytes));
-                rawLatexSource = await reader.ReadToEndAsync();
+                rawCvText = await reader.ReadToEndAsync();
                 sourceLabel = selectedFile.Name;
             }
             else
@@ -222,11 +222,11 @@
                     return;
                 }
 
-                rawLatexSource = pastedText;
+                rawCvText = pastedText;
                 sourceLabel = "Pasted text";
             }
 
-            var result = await CvApiClient.ParseCvAsync(rawLatexSource);
+            var result = await CvApiClient.ParseCvAsync(rawCvText);
             parsedCv = result;
             WorkflowState.CurrentCv = result;
             currentCvSourceLabel = sourceLabel;

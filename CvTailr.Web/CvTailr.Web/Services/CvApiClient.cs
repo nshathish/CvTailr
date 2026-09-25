@@ -7,7 +7,7 @@ namespace CvTailr.Web.Services;
 
 public class CvApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstreamApi), ICvApiClient
 {
-    public async Task<CvDocument> ParseCvAsync(string rawLatexSource, CancellationToken ct = default)
+    public async Task<CvDocument> ParseCvAsync(string rawCvText, CancellationToken ct = default)
     {
         const string relativePath = "api/cv/parse";
         using var response = await DownstreamApi.CallApiForUserAsync(
@@ -17,7 +17,7 @@ public class CvApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstrea
                 options.HttpMethod = "POST";
                 options.RelativePath = relativePath;
             },
-            content: JsonContent.Create(new { rawLatexSource }, options: JsonOptions),
+            content: JsonContent.Create(new { rawCvText }, options: JsonOptions),
             cancellationToken: ct);
 
         await ThrowIfUnsuccessfulAsync(response, "POST", relativePath, ct);

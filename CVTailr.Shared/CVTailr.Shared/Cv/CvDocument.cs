@@ -9,9 +9,9 @@ public class CvDocument
     /// </summary>
     public string UserId { get; set; } = string.Empty;
 
-    public List<CvRole> Roles { get; set; } = new();
-    public List<CvSkill> Skills { get; set; } = new();
-    public string? RawLatexSource { get; set; }
+    public List<CvRole> Roles { get; set; } = [];
+    public List<CvSkill> Skills { get; set; } = [];
+    public string? RawSourceText { get; set; }
 
     /// <summary>
     ///     Set fresh every time this document is (re-)parsed and replaces the prior one. CvId
