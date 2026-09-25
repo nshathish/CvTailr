@@ -52,7 +52,8 @@ public static class CvEndpoints
                 }
 
                 var userId = currentUserContext.GetUserId();
-                var result = await cvParsingService.UploadAndParseAsync(userId, rawCvSource, cancellationToken);
+                var result = await cvParsingService.UploadAndParseAsync(
+                    userId, rawCvSource, cvFile?.FileName, cancellationToken);
                 return TypedResults.Ok(result);
             })
             .WithName("UploadCv")

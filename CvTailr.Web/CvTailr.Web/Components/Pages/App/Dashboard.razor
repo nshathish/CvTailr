@@ -58,7 +58,13 @@
                 <NavLink href="@($"score?jobId={job.Id}")"
                    class="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
                     <div class="flex items-start justify-between gap-4">
-                        <h2 class="min-w-0 truncate text-base font-semibold text-slate-900">@job.JdRequirements.RoleTitle</h2>
+                        <div class="min-w-0">
+                            <h2 class="truncate text-base font-semibold text-slate-900">@job.JdRequirements.RoleTitle</h2>
+                            @if (!string.IsNullOrWhiteSpace(job.JdRequirements.CompanyName))
+                            {
+                                <p class="truncate text-xs text-slate-500">@job.JdRequirements.CompanyName</p>
+                            }
+                        </div>
 
                         @if (job.MatchScoreResult is not null && !IsScoreStale(job))
                         {

@@ -64,12 +64,13 @@ public class CvParsingService(
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
-    public async Task<CvDocument> UploadAndParseAsync(string userId, string rawCvSource,
+    public async Task<CvDocument> UploadAndParseAsync(string userId, string rawCvSource, string? sourceFileName,
         CancellationToken cancellationToken = default)
     {
         var document = await ExtractDocumentAsync(rawCvSource, cancellationToken);
         document.UserId = userId;
         document.RawSourceText = rawCvSource;
+        document.SourceFileName = sourceFileName;
 
         await cvRepository.UpsertAsync(document, cancellationToken);
 

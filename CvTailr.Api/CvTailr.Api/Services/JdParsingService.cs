@@ -18,6 +18,7 @@ public class JdParsingService(
         Return a JSON object matching exactly this shape:
         {
           "RoleTitle": string,
+          "CompanyName": string,
           "Requirements": [
             { "Skill": string, "Priority": "MustHave" | "NiceToHave", "YearsRequired": string | null, "Notes": string | null }
           ],
@@ -31,6 +32,9 @@ public class JdParsingService(
           of these four languages are emphasized, return an empty array.
         - "Priority" must be exactly "MustHave" or "NiceToHave" for every requirement.
         - Do not invent requirements that aren't supported by the text.
+        - "CompanyName" is the hiring company's name as stated in the job description. If the
+          company name genuinely cannot be determined from the text (e.g. a recruiter posting
+          with no company disclosed), return an empty string rather than guessing or inventing one.
         """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;

@@ -58,6 +58,10 @@
             <div class="mt-4 space-y-4">
                 <div>
                     <h2 class="text-lg font-semibold text-slate-900">@jd.RoleTitle</h2>
+                    @if (!string.IsNullOrWhiteSpace(jd.CompanyName))
+                    {
+                        <p class="mt-0.5 text-sm text-slate-600">@jd.CompanyName</p>
+                    }
                 </div>
 
                 <div>
