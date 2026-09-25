@@ -1,0 +1,19 @@
+@* Uppercase status pill for a job's lifecycle status (Scored / Preparing / Tailored). *@
+@using JobStatus = CvTailr.Web.Services.JobStatus
+
+<span class="@GetColorClass() inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+    @Status
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public JobStatus Status { get; set; }
+
+    private string GetColorClass() => Status switch
+    {
+        JobStatus.Scored => "bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]",
+        JobStatus.Preparing => "bg-[#EEECFD] border-[#D9D5FB] text-[#3F34C4]",
+        JobStatus.Tailored => "bg-[#D1FAE5] border-[#A7F3D0] text-[#065F46]",
+        _ => "bg-slate-100 border-slate-200 text-slate-600"
+    };
+}

@@ -9,7 +9,7 @@ public interface IJobsApiClient
 
     Task<JobCvResponse?> GetJobCvAsync(string jobId, CancellationToken ct = default);
 
-    Task<List<Job>> GetJobsAsync(CancellationToken ct = default);
+    Task<List<JobSummary>> GetJobsAsync(CancellationToken ct = default);
 
     Task DeleteJobAsync(string jobId, CancellationToken ct = default);
 }
