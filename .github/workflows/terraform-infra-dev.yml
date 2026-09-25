@@ -3,8 +3,8 @@ name: Terraform Infra Dev
 on:
   pull_request:
     # No path filter here — this workflow must always trigger so the
-    # required "Terraform Plan" check can report a status on every PR
-    # (see the "gate" job below for how non-infra PRs skip cleanly).
+    # required "Terraform Plan" check can report a status on every PR.
+    # Non-infra PRs skip the Terraform steps inside the plan job.
 
   push:
     branches:
@@ -16,37 +16,20 @@ on:
 permissions:
   contents: read
   id-token: write
+  pull-requests: read # dorny/paths-filter lists PR files via the REST API
 
 jobs:
-  gate:
-    name: Terraform Plan
-    runs-on: ubuntu-latest
-    outputs:
-      infra_changed: ${{ steps.filter.outputs.infra }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Detect infra changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            infra:
-              - 'CvTailr.Infra/**'
-              - '.github/workflows/terraform-infra-dev.yml'
-
   plan:
-    name: Terraform Plan (run)
-    needs: gate
-    if: needs.gate.outputs.infra_changed == 'true'
+    name: Terraform Plan
     runs-on: ubuntu-latest
 
     environment:
       name: dev
 
+    outputs:
+      infra_changed: ${{ steps.filter.outputs.infra }}
+
     env:
-      # (unchanged — same full env block as before)
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -83,7 +66,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect infra changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            infra:
+              - 'CvTailr.Infra/**'
+              - '.github/workflows/terraform-infra-dev.yml'
+
+      - name: No infra changes - skipping Terraform
+        if: steps.filter.outputs.infra != 'true'
+        working-directory: .
+        run: echo "No changes under CvTailr.Infra/ — Terraform steps skipped."
+
       - name: Azure Login - Terraform State
+        if: steps.filter.outputs.infra == 'true'
         uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -91,31 +89,35 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
+        if: steps.filter.outputs.infra == 'true'
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
+        if: steps.filter.outputs.infra == 'true'
         run: terraform init -input=false -reconfigure
 
       - name: Terraform Format
+        if: steps.filter.outputs.infra == 'true'
         run: terraform fmt -check -recursive ../..
 
       - name: Terraform Validate
+        if: steps.filter.outputs.infra == 'true'
         run: terraform validate
 
       - name: Terraform Plan - Pull Request
-        if: github.event_name == 'pull_request'
+        if: steps.filter.outputs.infra == 'true' && github.event_name == 'pull_request'
         run: terraform plan -input=false
 
       - name: Terraform Plan - Main
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.filter.outputs.infra == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform plan -input=false -out=tfplan
 
       - name: Show Terraform Plan
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.filter.outputs.infra == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform show -no-color tfplan
 
       - name: Upload Terraform Plan
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.filter.outputs.infra == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: terraform-dev-plan
@@ -124,8 +126,8 @@ jobs:
 
   approve:
     name: Approval Gate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: plan
+    if: needs.plan.outputs.infra_changed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: dev-approval
@@ -135,8 +137,8 @@ jobs:
 
   apply:
     name: Terraform Apply
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: approve
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: dev
@@ -155,22 +157,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Azure Login - Terraform State
         uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
       - name: Terraform Init
         run: terraform init -input=false -reconfigure
+
       - name: Download Terraform Plan
         uses: actions/download-artifact@v4
         with:
           name: terraform-dev-plan
           path: CvTailr.Infra/environments/dev
+
       - name: Terraform Apply
         run: terraform apply -input=false tfplan
+
       - name: Terraform Output
         run: terraform output
