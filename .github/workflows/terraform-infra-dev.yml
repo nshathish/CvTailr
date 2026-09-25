@@ -31,8 +31,8 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       # CvTailr External ID identity
-      TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
-      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+      TF_VAR_entra_client_id: ${{ vars.ENTRA_CIAM_CLIENT_ID }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_CIAM_TENANT_ID }}
       TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID }}
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID }}
       TF_VAR_entra_web_client_secret: ${{ secrets.ENTRA_WEB_CLIENT_SECRET }}
@@ -127,8 +127,8 @@ jobs:
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       # CvTailr External ID identity
-      TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
-      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+      TF_VAR_entra_client_id: ${{ vars.ENTRA_CIAM_CLIENT_ID }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_CIAM_TENANT_ID }}
 
       TF_IN_AUTOMATION: true
 
