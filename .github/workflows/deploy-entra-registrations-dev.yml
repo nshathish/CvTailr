@@ -1,17 +1,17 @@
-name: Terraform Dev
+name: Deploy Entra Registrations Dev
 
 on:
   pull_request:
     paths:
       - "CvTailr.Infra/**"
-      - ".github/workflows/terraform-dev.yml"
+      - ".github/workflows/deploy-entra-registraions-dev.yml"
 
   push:
     branches:
       - main
     paths:
       - "CvTailr.Infra/**"
-      - ".github/workflows/terraform-dev.yml"
+      - ".github/workflows/deploy-entra-registraions-dev.yml"
 
 permissions:
   contents: read
@@ -33,6 +33,27 @@ jobs:
       # CvTailr External ID identity
       TF_VAR_entra_client_id: ${{ vars.ENTRA_CLIENT_ID }}
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID }}
+      TF_VAR_azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_azuread_instance: ${{ vars.AZUREAD_INSTANCE }}
+
+      # Azure AI Foundry
+      TF_VAR_foundry_endpoint: ${{ vars.FOUNDRY_ENDPOINT }}
+      TF_VAR_foundry_api_key: ${{ secrets.FOUNDRY_API_KEY }}
+      TF_VAR_foundry_cv_parsing_deployment_name: ${{ vars.FOUNDRY_CV_PARSING_DEPLOYMENT_NAME }}
+      TF_VAR_foundry_jd_parsing_deployment_name: ${{ vars.FOUNDRY_JD_PARSING_DEPLOYMENT_NAME }}
+      TF_VAR_foundry_scoring_deployment_name: ${{ vars.FOUNDRY_SCORING_DEPLOYMENT_NAME }}
+
+      # Firecrawl
+      TF_VAR_firecrawl_api_key: ${{ secrets.FIRECRAWL_API_KEY }}
+
+      # Cosmos DB
+      TF_VAR_cosmos_endpoint: ${{ vars.COSMOS_ENDPOINT }}
+      TF_VAR_cosmos_account_key: ${{ secrets.COSMOS_ACCOUNT_KEY }}
+      TF_VAR_cosmos_database_name: ${{ vars.COSMOS_DATABASE_NAME }}
+      TF_VAR_cosmos_container_name: ${{ vars.COSMOS_CONTAINER_NAME }}
+      TF_VAR_cosmos_cv_container_name: ${{ vars.COSMOS_CV_CONTAINER_NAME }}
+      TF_VAR_cosmos_job_container_name: ${{ vars.COSMOS_JOB_CONTAINER_NAME }}
+      TF_VAR_cosmos_tailored_cv_container_name: ${{ vars.COSMOS_TAILORED_CV_CONTAINER_NAME }}
 
       TF_IN_AUTOMATION: true
 
