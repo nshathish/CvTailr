@@ -3,23 +3,6 @@ locals {
   web_app_name = "cvtailr-web-dev"
 }
 
-# The Api/Web Entra App Registrations themselves are now created and managed manually in the
-# portal (see task 002-remove-entra-module) — this only keeps the Web app's redirect URIs in
-# sync via a narrow, non-owning resource, rather than owning the whole application resource.
-data "azuread_application" "web" {
-  client_id = var.entra_web_client_id
-}
-
-resource "azuread_application_redirect_uris" "web" {
-  application_id = data.azuread_application.web.id
-  type           = "Web"
-
-  redirect_uris = [
-    "https://localhost:7077/signin-oidc",
-    "https://${module.app_service.web_default_hostname}/signin-oidc"
-  ]
-}
-
 module "app_service" {
   source = "../../modules/app_service"
 
