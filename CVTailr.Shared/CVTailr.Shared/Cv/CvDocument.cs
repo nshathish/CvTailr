@@ -14,6 +14,11 @@ public class CvDocument
     public string? RawSourceText { get; set; }
 
     /// <summary>
+    ///     The uploaded file's original name, or null when the CV was uploaded via pasted text.
+    /// </summary>
+    public string? SourceFileName { get; set; }
+
+    /// <summary>
     ///     Set fresh every time this document is (re-)parsed and replaces the prior one. CvId
     ///     itself never changes across a re-upload (the same CvDocument.Id is preserved in place),
     ///     so this is the only signal for "has the master CV changed since X" — e.g. comparing

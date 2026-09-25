@@ -134,15 +134,10 @@
     private string? _errorMessage;
     private CvDocument? _parsedCv;
 
-    // No source/filename field is persisted anywhere (CvDocument has no such field), so this
-    // only reflects an upload/replace performed in this session; an existing CV loaded on page
-    // arrival falls back to the placeholder below.
-    private string? _currentCvSourceLabel;
-
     private bool CanUpload => (_selectedFile is not null && _validationError is null)
         || !string.IsNullOrWhiteSpace(_pastedText);
 
-    private string CurrentCvSourceDisplay => _currentCvSourceLabel ?? "Uploaded CV";
+    private string CurrentCvSourceDisplay => _parsedCv?.SourceFileName ?? "Pasted text";
 
     private string CurrentCvSavedDisplay => _parsedCv is not null
         ? _parsedCv.UpdatedAt.ToLocalTime().ToString("d MMM yyyy, h:mm tt")
@@ -243,13 +238,11 @@
         try
         {
             CvDocument result;
-            string sourceLabel;
 
             if (_selectedFile is not null)
             {
                 using var stream = _selectedFile.OpenReadStream(MaxFileSizeBytes);
                 result = await CvApiClient.ParseCvAsync(stream, _selectedFile.Name, rawCvText: null);
-                sourceLabel = _selectedFile.Name;
             }
             else
             {
@@ -260,12 +253,10 @@
                 }
 
                 result = await CvApiClient.ParseCvAsync(fileStream: null, fileName: null, _pastedText);
-                sourceLabel = "Pasted text";
             }
 
             _parsedCv = result;
             WorkflowState.CurrentCv = result;
-            _currentCvSourceLabel = sourceLabel;
             _selectedFile = null;
             _pastedText = string.Empty;
         }
