@@ -1,64 +1,122 @@
-@* Renders a Job's MatchScoreResult (overall score ring, rationale, missing must-haves,
-   requirement breakdown). Shared between the standalone /score route and the
-   New Job wizard's "Match & score" step so there's one source of truth for this markup. *@
+@* Renders a Job's MatchScoreResult: a summary card (fit-score ring, stat columns, rationale)
+   and a requirement card (worked-on requirements first, fully-met ones collapsible). Shared
+   between the standalone /score route and the New Job wizard's "Match & score" step so
+   there's one source of truth for this markup. *@
+@using System.Globalization
 
 @if (Job.MatchScoreResult is { } score)
 {
-    <div class="space-y-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center gap-4">
-            <div class="@GetScoreRingClass(score.OverallScorePercent) flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 text-xl font-bold">
-                @score.OverallScorePercent%
+    var classified = score.RequirementMatches
+        .Select(m => (Match: m, State: RequirementClassifier.Classify(m), Priority: GetPriority(m.RequirementId)))
+        .OrderBy(x => GetStateOrder(x.State))
+        .ThenBy(x => x.Priority == RequirementPriority.MustHave ? 0 : 1)
+        .ToList();
+
+    var toWorkOn = classified.Where(x => RequirementClassifier.IsToWorkOn(x.State)).ToList();
+    var met = classified.Where(x => x.State == RequirementState.Met).ToList();
+
+    var metCount = classified.Count(x => x.State == RequirementState.Met);
+    var partialCount = classified.Count(x => x.State == RequirementState.Partial);
+    var gapItems = classified.Where(x => x.State == RequirementState.Gap).ToList();
+    var gapCount = gapItems.Count;
+    var mustHaveGapCount = gapItems.Count(x => x.Priority == RequirementPriority.MustHave);
+    var lowConfidenceCount = classified.Count(x => x.State == RequirementState.MetLowConfidence);
+
+    <div class="rounded-2xl border border-[#E4E6EE] bg-white p-6">
+        <div class="flex flex-col items-center gap-8 sm:flex-row">
+            <div class="relative h-24 w-24 shrink-0">
+                <svg class="h-24 w-24 -rotate-90" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="43" fill="none" stroke="#E4E6EE" stroke-width="10" />
+                    <circle cx="48" cy="48" r="43" fill="none" stroke="#5B4FE0" stroke-width="10" stroke-linecap="round"
+                            stroke-dasharray="270.18" stroke-dashoffset="@GetRingDashOffset(score.OverallScorePercent)" />
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <span class="font-space-grotesk text-[30px] font-semibold text-slate-900">@score.OverallScorePercent</span>
+                    <span class="font-jetbrains-mono text-[9px] uppercase tracking-wider text-slate-500">Fit score</span>
+                </div>
             </div>
-            <p class="text-sm text-slate-700">@score.Rationale</p>
+
+            <div class="flex flex-1 flex-wrap gap-10">
+                <div>
+                    <p class="font-space-grotesk text-2xl font-semibold text-slate-900">@metCount</p>
+                    <p class="text-xs text-slate-500">requirements met</p>
+                </div>
+                <div>
+                    <p class="font-space-grotesk text-2xl font-semibold text-slate-900">@partialCount</p>
+                    <p class="text-xs text-slate-500">partially met</p>
+                </div>
+                <div>
+                    <p class="@(gapCount > 0 ? "text-[#B45309]" : "text-slate-900") font-space-grotesk text-2xl font-semibold">@gapCount</p>
+                    <p class="text-xs text-slate-500">gaps@(mustHaveGapCount > 0 ? $", {mustHaveGapCount} must-have" : "")</p>
+                </div>
+                <div>
+                    <p class="font-space-grotesk text-2xl font-semibold text-slate-900">@lowConfidenceCount</p>
+                    <p class="text-xs text-slate-500">met, low confidence</p>
+                </div>
+            </div>
         </div>
+
+        @if (!string.IsNullOrWhiteSpace(score.Rationale))
+        {
+            <details class="mt-6">
+                <summary class="cursor-pointer text-[13px] font-semibold text-[#4A3FD0]">Why this score?</summary>
+                <p class="mt-2 text-sm leading-relaxed text-slate-700">@score.Rationale</p>
+            </details>
+        }
     </div>
 
-    @if (GetMissingMustHaves(score) is { Count: > 0 } missingMustHaves)
-    {
-        <div class="mt-4 space-y-2 rounded-md border border-red-300 bg-red-50 p-4">
-            <h2 class="text-sm font-semibold text-red-900">Missing must-haves</h2>
-            <div class="space-y-2">
-                @foreach (var match in missingMustHaves)
-                {
-                    <div class="rounded-md border border-red-200 bg-white p-3">
-                        <p class="text-sm font-medium text-slate-900">@match.Skill</p>
-                        @if (!string.IsNullOrWhiteSpace(match.GapNote))
-                        {
-                            <p class="mt-1 text-xs text-slate-600">@match.GapNote</p>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    <div class="mt-4 space-y-2">
-        <h2 class="text-sm font-medium text-slate-700">Requirement breakdown</h2>
-        <div class="space-y-2">
-            @foreach (var match in score.RequirementMatches)
+    <div class="mt-4 rounded-2xl border border-[#E4E6EE] bg-white px-6 py-2">
+        <div class="divide-y divide-[#EEF0F5]">
+            @foreach (var x in toWorkOn)
             {
-                <div class="flex items-start gap-3 rounded-md border border-slate-100 p-3">
-                    <div class="flex shrink-0 flex-col items-start gap-1">
-                        <span class="@GetPriorityBadgeClass(GetPriority(match.RequirementId)) rounded-full px-2 py-0.5 text-xs font-medium">
-                            @(GetPriority(match.RequirementId) == RequirementPriority.MustHave ? "Must have" : "Nice to have")
-                        </span>
-                        <span class="@GetMetBadgeClass(match.IsMet) rounded-full px-2 py-0.5 text-xs font-medium">
-                            @(match.IsMet ? "Met" : "Not met")
-                        </span>
+                <div class="grid grid-cols-[104px_minmax(0,1fr)] gap-4 py-4">
+                    <div class="flex flex-col items-start gap-1.5">
+                        <span class="@GetPriorityBadgeClass(x.Priority) rounded-md px-2 py-0.5 text-[11px] font-medium">@GetPriorityBadgeLabel(x.Priority)</span>
+                        <span class="@GetStateBadgeClass(x.State) rounded-md px-2 py-0.5 text-[11px] font-medium">@GetStateBadgeLabel(x.State)</span>
                     </div>
                     <div class="min-w-0">
-                        <p class="text-sm font-medium text-slate-900">@match.Skill</p>
-                        <p class="text-xs text-slate-500">Confidence: @match.Confidence%</p>
-                        @if (!string.IsNullOrWhiteSpace(match.SupportingEvidence))
+                        <p class="text-[15px] font-semibold text-slate-900">@x.Match.Skill</p>
+                        <p class="text-xs text-slate-500">Confidence: @x.Match.Confidence%</p>
+                        @if (!x.Match.IsMet && !string.IsNullOrWhiteSpace(x.Match.GapNote))
                         {
-                            <p class="mt-1 text-xs text-slate-600">@match.SupportingEvidence</p>
+                            <p class="mt-1 text-[13px] text-slate-600">@x.Match.GapNote</p>
                         }
-                        @if (!match.IsMet && !string.IsNullOrWhiteSpace(match.GapNote))
+                        else if (x.Match.IsMet && !string.IsNullOrWhiteSpace(x.Match.SupportingEvidence))
                         {
-                            <p class="mt-1 text-xs text-slate-600">@match.GapNote</p>
+                            <p class="mt-1 text-[13px] text-slate-600">@x.Match.SupportingEvidence</p>
                         }
                     </div>
                 </div>
+            }
+
+            @if (toWorkOn.Count > 0 && met.Count > 0)
+            {
+                <button type="button"
+                        @onclick="() => _showAllMet = !_showAllMet"
+                        class="w-full py-4 text-left text-xs font-medium text-slate-500 hover:text-slate-700">
+                    @(_showAllMet ? "Show fewer" : $"+ {met.Count} more requirements met")
+                </button>
+            }
+
+            @if (toWorkOn.Count == 0 || _showAllMet)
+            {
+                @foreach (var x in met)
+                {
+                    <div class="grid grid-cols-[104px_minmax(0,1fr)] gap-4 py-4">
+                        <div class="flex flex-col items-start gap-1.5">
+                            <span class="@GetPriorityBadgeClass(x.Priority) rounded-md px-2 py-0.5 text-[11px] font-medium">@GetPriorityBadgeLabel(x.Priority)</span>
+                            <span class="@GetStateBadgeClass(x.State) rounded-md px-2 py-0.5 text-[11px] font-medium">@GetStateBadgeLabel(x.State)</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[15px] font-semibold text-slate-900">@x.Match.Skill</p>
+                            <p class="text-xs text-slate-500">Confidence: @x.Match.Confidence%</p>
+                            @if (!string.IsNullOrWhiteSpace(x.Match.SupportingEvidence))
+                            {
+                                <p class="mt-1 text-[13px] text-slate-600">@x.Match.SupportingEvidence</p>
+                            }
+                        </div>
+                    </div>
+                }
             }
         </div>
     </div>
@@ -84,31 +142,49 @@
     // choice section instead — the New Job wizard's step 3 keeps the default single-button CTA.
     [Parameter] public bool ShowTailorButton { get; set; } = true;
 
-    private List<RequirementMatch> GetMissingMustHaves(MatchScoreResult score) =>
-        score.RequirementMatches
-            .Where(m => !m.IsMet && GetPriority(m.RequirementId) == RequirementPriority.MustHave)
-            .ToList();
+    private bool _showAllMet;
+
+    private const double SummaryRingCircumference = 270.18; // 2π × 43 (r=43, 96px ring, stroke-width 10)
+
+    private static string GetRingDashOffset(int scorePercent) =>
+        (SummaryRingCircumference * (1 - scorePercent / 100.0)).ToString("F2", CultureInfo.InvariantCulture);
 
     private RequirementPriority GetPriority(string requirementId) =>
         Job.JdRequirements.Requirements.FirstOrDefault(r => r.Id == requirementId)?.Priority
         ?? RequirementPriority.NiceToHave;
 
-    private static string GetPriorityBadgeClass(RequirementPriority priority) => priority switch
+    private static int GetStateOrder(RequirementState state) => state switch
     {
-        RequirementPriority.MustHave => "bg-red-100 text-red-800",
-        RequirementPriority.NiceToHave => "bg-emerald-100 text-emerald-800",
-        _ => "bg-slate-100 text-slate-800"
+        RequirementState.Gap => 0,
+        RequirementState.Partial => 1,
+        RequirementState.MetLowConfidence => 2,
+        _ => 3 // Met
     };
 
-    private static string GetMetBadgeClass(bool isMet) => isMet
-        ? "bg-emerald-100 text-emerald-800"
-        : "bg-slate-200 text-slate-700";
-
-    private static string GetScoreRingClass(int scorePercent) => scorePercent switch
+    private static string GetPriorityBadgeClass(RequirementPriority priority) => priority switch
     {
-        >= 80 => "border-emerald-500 text-emerald-700",
-        >= 50 => "border-amber-500 text-amber-700",
-        _ => "border-red-500 text-red-700"
+        RequirementPriority.MustHave => "bg-[#FDE2E4] text-[#9F1239]",
+        _ => "bg-[#F1F2F6] text-[#3B4152]"
+    };
+
+    private static string GetPriorityBadgeLabel(RequirementPriority priority) => priority switch
+    {
+        RequirementPriority.MustHave => "Must have",
+        _ => "Nice to have"
+    };
+
+    private static string GetStateBadgeClass(RequirementState state) => state switch
+    {
+        RequirementState.Gap => "bg-[#FFEDD5] text-[#9A3412]",
+        RequirementState.Partial => "bg-[#FEF3C7] text-[#92400E]",
+        _ => "bg-[#D1FAE5] text-[#065F46]" // Met, MetLowConfidence
+    };
+
+    private static string GetStateBadgeLabel(RequirementState state) => state switch
+    {
+        RequirementState.Gap => "Gap",
+        RequirementState.Partial => "Partial",
+        _ => "Met" // Met, MetLowConfidence
     };
 
     private static string GetTailorCtaLabel(int scorePercent) => scorePercent switch
@@ -116,5 +192,4 @@
         100 => "Fine-tune wording for this job",
         _ => "Tailor my CV to this job"
     };
-
 }

@@ -1,8 +1,8 @@
 @page "/dashboard"
 @rendermode InteractiveServer
 
+@using System.Globalization
 @using JobStatus = CvTailr.Web.Services.JobStatus
-@using PrepSummary = CvTailr.Web.Services.PrepSummary
 
 @inject IJobsApiClient JobsApiClient
 @inject ICvApiClient CvApiClient
@@ -68,102 +68,110 @@
         <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             @foreach (var job in _jobs)
             {
-                <div class="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-                    <NavLink href="@GetScoreHref(job)"
-                       title="View fit score"
-                       aria-label="@($"View fit score for {job.JdRequirements.RoleTitle}")"
-                       class="absolute right-10 top-3 rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.01 9.963 7.183.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.01-9.963-7.178Z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                        </svg>
-                    </NavLink>
-                    <button type="button"
-                       @onclick="() => DeleteJobAsync(job)"
-                       title="Delete job"
-                       class="absolute right-3 top-3 rounded-md p-1 text-slate-400 hover:bg-red-50 hover:text-red-600">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M9.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5v2m-8 0 .7 12.1a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9L18.5 7" />
-                        </svg>
-                    </button>
+                <div class="flex flex-col gap-5 overflow-hidden rounded-[20px] border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-12px_rgba(15,23,42,0.18)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_24px_48px_-16px_rgba(91,79,224,0.35)]">
+                    <div class="flex items-start gap-3.5">
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#EEECFD] text-[20px] font-semibold text-[#4A3FD0]">
+                            @GetCompanyInitial(job)
+                        </div>
 
-                    <div class="flex items-start justify-between gap-4 pr-8">
-                        <div class="min-w-0">
-                            <h2 class="truncate text-base font-semibold text-slate-900">
-                                <NavLink href="@GetActionHref(job)" class="hover:underline">@job.JdRequirements.RoleTitle</NavLink>
+                        <div class="min-w-0 flex-1">
+                            <h2 class="font-space-grotesk line-clamp-2 text-[17px] font-semibold leading-snug text-slate-800" title="@job.JdRequirements.RoleTitle">
+                                @job.JdRequirements.RoleTitle
                             </h2>
                             @if (!string.IsNullOrWhiteSpace(job.JdRequirements.CompanyName))
                             {
-                                <p class="truncate text-xs text-slate-500">@job.JdRequirements.CompanyName</p>
+                                <p class="mt-0.5 text-sm font-normal text-slate-500">@job.JdRequirements.CompanyName</p>
                             }
                         </div>
 
-                        @if (job.MatchScoreResult is not null && !IsScoreStale(job))
-                        {
+                        <div class="-mr-2 -mt-1 flex shrink-0 gap-1">
                             <NavLink href="@GetScoreHref(job)"
                                title="View fit score"
                                aria-label="@($"View fit score for {job.JdRequirements.RoleTitle}")"
-                               class="shrink-0 rounded-full transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5B4FE0]">
-                                <div class="@GetScoreRingClass(job.MatchScoreResult.OverallScorePercent) flex h-14 w-14 items-center justify-center rounded-full border-4 text-sm font-bold">
-                                    @job.MatchScoreResult.OverallScorePercent%
-                                </div>
+                               class="flex h-9 w-9 items-center justify-center rounded-[10px] text-slate-400 transition-colors hover:bg-[#EEECFD] hover:text-[#5B4FE0] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5B4FE0]">
+                                <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
                             </NavLink>
-                        }
-                        else if (IsScoreStale(job))
-                        {
-                            <span class="shrink-0 text-xs font-medium text-amber-700">Needs re-score</span>
-                        }
-                        else
-                        {
-                            <span class="shrink-0 text-xs font-medium text-slate-400">Not scored yet</span>
-                        }
+                            <button type="button"
+                               @onclick="() => DeleteJobAsync(job)"
+                               title="Delete job"
+                               class="flex h-9 w-9 items-center justify-center rounded-[10px] text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">
+                                <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12M9.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5v2m-8 0 .7 12.1a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9L18.5 7" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="mt-3">
-                        <StatusChip Status="job.Status" />
-
-                        @if (job.Status == JobStatus.Preparing && job.PrepSummary is { } prepSummary)
-                        {
-                            <div class="mt-2 h-1.5 w-full rounded-full bg-[#E4E6EE]">
-                                <div class="h-1.5 rounded-full bg-[#5B4FE0]" style="width: @(GetPrepPercent(prepSummary))%"></div>
-                            </div>
-                            <p class="mt-1 text-xs text-slate-600">@prepSummary.Ready of @prepSummary.Total ready</p>
-                        }
-                        else if (job.Status == JobStatus.Tailored)
-                        {
-                            <p class="mt-1 text-xs text-slate-600">
-                                @(job.PrepSummary is { } tailoredPrep
-                                    ? $"Prepared · {tailoredPrep.AssessedPassed} skills assessed"
-                                    : "Tailored directly")
-                            </p>
-                        }
-                    </div>
-
-                    @if (IsScoreStale(job))
+                    @if (job.MatchScoreResult is { } score)
                     {
-                        <span class="mt-2 inline-block rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                            CV updated since scored
-                        </span>
+                        var total = score.RequirementMatches.Count;
+                        var met = GetMatchedCount(score);
+
+                        <section class="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                                 aria-label="@($"Skill match {score.OverallScorePercent} percent, {met} of {total} skills matched")">
+                            <div class="relative h-[68px] w-[68px] shrink-0">
+                                <svg class="h-[68px] w-[68px] -rotate-90" viewBox="0 0 68 68">
+                                    <circle cx="34" cy="34" r="28" fill="none" stroke="currentColor" stroke-width="7"
+                                            class="@GetRingTrackClass(score.OverallScorePercent)" />
+                                    <circle cx="34" cy="34" r="28" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"
+                                            stroke-dasharray="175.93" stroke-dashoffset="@GetRingDashOffset(score.OverallScorePercent)"
+                                            class="@GetRingArcClass(score.OverallScorePercent)" />
+                                </svg>
+                                <div class="@GetRingLabelClass(score.OverallScorePercent) absolute inset-0 flex items-center justify-center text-[17px] font-semibold">
+                                    @score.OverallScorePercent%
+                                </div>
+                            </div>
+
+                            <div class="min-w-0 flex-1 space-y-2">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <span class="text-sm font-semibold text-slate-700">@GetMatchLabel(score.OverallScorePercent)</span>
+                                    <span class="text-[13px] font-normal text-slate-500">@met of @total skills</span>
+                                </div>
+
+                                @if (total > 0 && total <= 20)
+                                {
+                                    <div class="grid gap-[3px]" style="grid-template-columns: repeat(@total, minmax(0, 1fr));" aria-hidden="true">
+                                        @foreach (var match in score.RequirementMatches)
+                                        {
+                                            <span class="@(match.IsMet ? GetSegmentFillClass(score.OverallScorePercent) : "bg-slate-200") h-1.5 rounded-full"></span>
+                                        }
+                                    </div>
+                                }
+                                else if (total > 20)
+                                {
+                                    <div class="h-1.5 w-full rounded-full bg-slate-200" aria-hidden="true">
+                                        <div class="@GetSegmentFillClass(score.OverallScorePercent) h-1.5 rounded-full" style="width: @(GetSegmentFillPercent(met, total))%"></div>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+                    else
+                    {
+                        <p class="text-xs font-medium text-slate-400">Not scored yet</p>
                     }
 
-                    <p class="mt-2 text-xs text-slate-500">
-                        @if (job.MatchScoreResult is not null && !IsScoreStale(job))
-                        {
-                            @($"{GetMatchedCount(job.MatchScoreResult)} of {job.MatchScoreResult.RequirementMatches.Count} skills matched · ")
-                        }
-                        else if (IsScoreStale(job))
-                        {
-                            @("Score outdated · ")
-                        }
-                        @job.UpdatedAt.ToString("d MMM yyyy")
-                    </p>
+                    <div class="flex items-center justify-between gap-3">
+                        <StatusChip Status="job.Status" />
 
-                    <div class="mt-4 flex items-center justify-between gap-3 border-t border-[#EEF0F5] pt-3">
-                        <span class="text-xs text-slate-500">@GetFooterHint(job.Status)</span>
-                        <NavLink href="@GetActionHref(job)" class="inline-flex min-h-9 items-center text-sm font-semibold text-[#4A3FD0]">
-                            @GetFooterLinkLabel(job.Status)
-                        </NavLink>
+                        <div class="flex items-center gap-1.5 text-[13px] font-normal text-slate-500">
+                            <svg class="h-[15px] w-[15px] text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 8.25h16.5M4.5 6.75h15a.75.75 0 0 1 .75.75v12a1.5 1.5 0 0 1-1.5 1.5h-13.5a1.5 1.5 0 0 1-1.5-1.5v-12a.75.75 0 0 1 .75-.75Z" />
+                            </svg>
+                            <time datetime="@job.CreatedAt.ToString("yyyy-MM-dd")">Added @job.CreatedAt.ToString("d MMM yyyy")</time>
+                        </div>
                     </div>
+
+                    <NavLink href="@GetActionHref(job)"
+                             class="group/btn flex h-12 items-center justify-center gap-1.5 rounded-[14px] bg-[#5B4FE0] text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_rgba(91,79,224,0.6)] transition-colors hover:bg-[#4A3FD0] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5B4FE0]">
+                        @GetNextStepLabel(job.Status)
+                        <svg class="h-[18px] w-[18px] transition-transform group-hover/btn:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                        </svg>
+                    </NavLink>
                 </div>
             }
         </div>
@@ -239,24 +247,66 @@
         }
     }
 
-    // CvId can't detect a since-replaced CV (the master CvDocument's Id is preserved across
-    // re-uploads — see CvTailr.Api/docs/010-cv-reparse-bullet-id-churn.md), so this compares
-    // timestamps instead. Informational only — never hides or clears the existing score.
-    private bool IsScoreStale(JobSummary job) =>
-        job.MatchScoreResult is not null && _cv is not null && _cv.UpdatedAt > job.MatchScoreResult.ScoredAt;
+    private static string GetCompanyInitial(JobSummary job)
+    {
+        var source = string.IsNullOrWhiteSpace(job.JdRequirements.CompanyName)
+            ? job.JdRequirements.RoleTitle
+            : job.JdRequirements.CompanyName;
+
+        return string.IsNullOrWhiteSpace(source) ? "?" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
 
     private static int GetMatchedCount(MatchScoreResult result) =>
         result.RequirementMatches.Count(m => m.IsMet);
 
-    private static string GetScoreRingClass(int scorePercent) => scorePercent switch
+    private const double RingCircumference = 175.93; // 2π × 28 (r=28)
+
+    private static string GetRingDashOffset(int scorePercent) =>
+        (RingCircumference * (1 - scorePercent / 100.0)).ToString("F2", CultureInfo.InvariantCulture);
+
+    // Ring track/arc/label share one colour family per score band; track is the 100-shade,
+    // arc and segmented-bar fill are the 500-shade, the centre label is the 700-shade.
+    private static string GetRingTrackClass(int scorePercent) => scorePercent switch
     {
-        >= 80 => "border-emerald-500 text-emerald-700",
-        >= 50 => "border-amber-500 text-amber-700",
-        _ => "border-red-500 text-red-700"
+        >= 80 => "text-emerald-100",
+        >= 50 => "text-amber-100",
+        _ => "text-red-100"
     };
 
-    // Where the card's title and footer action link both go — a card's next step depends on
-    // where the job is in its lifecycle, not a single fixed destination for every card.
+    private static string GetRingArcClass(int scorePercent) => scorePercent switch
+    {
+        >= 80 => "text-emerald-500",
+        >= 50 => "text-amber-500",
+        _ => "text-red-500"
+    };
+
+    private static string GetRingLabelClass(int scorePercent) => scorePercent switch
+    {
+        >= 80 => "text-emerald-700",
+        >= 50 => "text-amber-700",
+        _ => "text-red-700"
+    };
+
+    private static string GetSegmentFillClass(int scorePercent) => scorePercent switch
+    {
+        >= 80 => "bg-emerald-500",
+        >= 50 => "bg-amber-500",
+        _ => "bg-red-500"
+    };
+
+    private static string GetMatchLabel(int scorePercent) => scorePercent switch
+    {
+        >= 85 => "Excellent match",
+        >= 70 => "Good match",
+        >= 50 => "Fair match",
+        _ => "Low match"
+    };
+
+    private static int GetSegmentFillPercent(int met, int total) =>
+        total <= 0 ? 0 : (int)Math.Round(100.0 * met / total);
+
+    // Where the next-step button (and the eye icon/score ring, via GetScoreHref) send the
+    // user — a card's next step depends on where the job is in its lifecycle.
     private static string GetActionHref(JobSummary job) => job.Status switch
     {
         JobStatus.Preparing => $"jobs/{job.Id}/prepare",
@@ -264,24 +314,14 @@
         _ => $"jobs/{job.Id}/score"
     };
 
-    // Unlike GetActionHref, the score ring and eye icon always open the score page
-    // regardless of status — they're a dedicated "view the stored score" affordance.
+    // Unlike GetActionHref, the eye icon always opens the score page regardless of status —
+    // it's a dedicated "view the stored score" affordance.
     private static string GetScoreHref(JobSummary job) => $"jobs/{job.Id}/score";
 
-    private static string GetFooterHint(JobStatus status) => status switch
+    private static string GetNextStepLabel(JobStatus status) => status switch
     {
-        JobStatus.Scored => "Prepare or tailor?",
-        JobStatus.Preparing => "Preparation in progress",
-        _ => ""
+        JobStatus.Preparing => "Continue preparing",
+        JobStatus.Tailored => "View tailored CV",
+        _ => "Choose next step"
     };
-
-    private static string GetFooterLinkLabel(JobStatus status) => status switch
-    {
-        JobStatus.Preparing => "Continue preparing →",
-        JobStatus.Tailored => "View tailored CV →",
-        _ => "Choose next step →"
-    };
-
-    private static int GetPrepPercent(PrepSummary prep) =>
-        prep.Total <= 0 ? 0 : (int)Math.Round(100.0 * prep.Ready / prep.Total);
 }
