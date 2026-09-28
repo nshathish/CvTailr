@@ -6,6 +6,6 @@ public class JdRequirements
     public string RoleTitle { get; set; } = string.Empty;
     public string CompanyName { get; set; } = string.Empty;
     public string RawJdText { get; set; } = string.Empty;
-    public List<JdRequirement> Requirements { get; set; } = new();
-    public List<string> EmphasizedLanguages { get; set; } = new();
+    public List<JdRequirement> Requirements { get; set; } = [];
+    public List<string> EmphasizedLanguages { get; set; } = [];
 }

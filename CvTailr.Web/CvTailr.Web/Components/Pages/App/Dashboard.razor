@@ -247,7 +247,7 @@
     {
         JobStatus.Preparing => $"jobs/{job.Id}/prepare",
         JobStatus.Tailored => $"jobs/{job.Id}/cv",
-        _ => $"score?jobId={job.Id}"
+        _ => $"jobs/{job.Id}/score"
     };
 
     private static string GetFooterHint(JobStatus status) => status switch

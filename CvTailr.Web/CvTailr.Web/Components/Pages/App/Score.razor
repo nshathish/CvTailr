@@ -1,6 +1,5 @@
-@page "/score"
+@page "/jobs/{JobId}/score"
 @rendermode InteractiveServer
-@using Microsoft.AspNetCore.WebUtilities
 
 @inject IJobsApiClient JobsApiClient
 @inject IScoreApiClient ScoreApiClient
@@ -27,8 +26,7 @@
     else if (WorkflowState.CurrentJob is null)
     {
         <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            You haven't parsed a job description yet this session.
-            <NavLink href="jobs/new" class="font-medium text-indigo-600 hover:text-indigo-500">Paste a JD first</NavLink>.
+            Job not found.
         </div>
     }
     else
@@ -75,11 +73,48 @@
             </div>
         }
 
-        <ScoreResultView Job="WorkflowState.CurrentJob" />
+        <ScoreResultView Job="WorkflowState.CurrentJob" ShowTailorButton="false" />
+
+        @if (WorkflowState.CurrentJob.MatchScoreResult is not null)
+        {
+            <section class="mt-8">
+                <h2 class="font-space-grotesk text-xl font-semibold text-slate-900">What would you like to do next?</h2>
+
+                <div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <ChoiceCard Title="Prepare, then tailor"
+                                Description="Learn the skills you're missing, prove them in a short assessment, then tailor your CV with evidence you can defend in the interview."
+                                Steps="PrepareSteps"
+                                Detail="@PrepareDetail"
+                                ActionText="Start preparing"
+                                ActionHref="@($"jobs/{JobId}/prepare")"
+                                IsRecommended="RecommendPrepare"
+                                IsPrimary="RecommendPrepare" />
+
+                    <ChoiceCard Title="Tailor now"
+                                Description="Go straight to tailored proposals using your CV as it stands. Gaps stay as gaps, and you can still practise for the interview afterwards."
+                                Steps="TailorSteps"
+                                Detail="Best when your score is already strong or the deadline is close"
+                                ActionText="Tailor my CV"
+                                ActionHref="@($"jobs/{JobId}/tailor")"
+                                IsRecommended="@(!RecommendPrepare)"
+                                IsPrimary="@(!RecommendPrepare)" />
+                </div>
+
+                <NavLink href="dashboard" class="mt-6 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                    Back to Dashboard
+                </NavLink>
+            </section>
+        }
     }
 </div>
 
 @code {
+    private static readonly string[] PrepareSteps = ["LEARN", "ASSESS", "CONFIRM", "TAILOR"];
+    private static readonly string[] TailorSteps = ["TAILOR", "PRACTISE LATER"];
+
+    [Parameter]
+    public string JobId { get; set; } = string.Empty;
+
     private bool _isLoading;
     private bool _cvMissing;
     private string? _errorMessage;
@@ -95,24 +130,65 @@
         && _cv is not null
         && _cv.UpdatedAt > WorkflowState.CurrentJob.MatchScoreResult.ScoredAt;
 
+    // "Requirements to work on" = every requirement that's a gap, partially met, or met with
+    // confidence below 70% — the model has no separate "partially met" state, so !IsMet covers
+    // both gap and partial.
+    private List<RequirementMatch> RequirementsToWorkOn =>
+        WorkflowState.CurrentJob?.MatchScoreResult?.RequirementMatches
+            .Where(m => !m.IsMet || m.Confidence < 70)
+            .ToList() ?? [];
+
+    // Recommend preparing first when a Must have requirement isn't fully met, or any met
+    // requirement's confidence is below 70% — narrower than RequirementsToWorkOn, which isn't
+    // scoped by priority.
+    private bool RecommendPrepare
+    {
+        get
+        {
+            var job = WorkflowState.CurrentJob;
+            if (job?.MatchScoreResult is null)
+                return false;
+
+            var mustHaveNotMet = job.MatchScoreResult.RequirementMatches.Any(m =>
+                !m.IsMet && GetPriority(job, m.RequirementId) == RequirementPriority.MustHave);
+            var metWithLowConfidence = job.MatchScoreResult.RequirementMatches.Any(m => m.IsMet && m.Confidence < 70);
+
+            return mustHaveNotMet || metWithLowConfidence;
+        }
+    }
+
+    private string? PrepareDetail
+    {
+        get
+        {
+            var requirements = RequirementsToWorkOn;
+            if (requirements.Count == 0)
+                return null;
+
+            var names = requirements.Take(3).Select(m => m.Skill);
+            var detail = $"{requirements.Count} requirement{(requirements.Count == 1 ? "" : "s")} to work on: {string.Join(", ", names)}";
+            if (requirements.Count > 3)
+                detail += $" + {requirements.Count - 3} more";
+
+            return detail;
+        }
+    }
+
+    private static RequirementPriority GetPriority(Job job, string requirementId) =>
+        job.JdRequirements.Requirements.FirstOrDefault(r => r.Id == requirementId)?.Priority
+        ?? RequirementPriority.NiceToHave;
+
     protected override async Task OnInitializedAsync()
     {
-        // Arrived from the Dashboard's job cards (?jobId=...) — load that specific job
-        // into workflow state before anything else, unless it's already the current one.
-        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        var jobId = QueryHelpers.ParseQuery(uri.Query).TryGetValue("jobId", out var jobIdValues)
-            ? jobIdValues.ToString()
-            : null;
-
-        if (!string.IsNullOrWhiteSpace(jobId) && WorkflowState.CurrentJob?.Id != jobId)
+        if (WorkflowState.CurrentJob?.Id != JobId)
         {
             _isLoadingJob = true;
             try
             {
-                var job = await JobsApiClient.GetJobByIdAsync(jobId);
+                var job = await JobsApiClient.GetJobByIdAsync(JobId);
                 if (job is null)
                 {
-                    _jobLoadError = $"Job '{jobId}' was not found.";
+                    _jobLoadError = $"Job '{JobId}' was not found.";
                 }
                 else
                 {

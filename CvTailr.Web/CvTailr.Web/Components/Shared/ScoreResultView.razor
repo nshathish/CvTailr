@@ -63,19 +63,26 @@
         </div>
     </div>
 
-    <div class="mt-4 flex items-center gap-4">
-        <NavLink href="@($"jobs/{Job.Id}/tailor")"
-                 class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
-            @GetTailorCtaLabel(score.OverallScorePercent)
-        </NavLink>
-        @ExtraActions
-    </div>
+    @if (ShowTailorButton)
+    {
+        <div class="mt-4 flex items-center gap-4">
+            <NavLink href="@($"jobs/{Job.Id}/tailor")"
+                     class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
+                @GetTailorCtaLabel(score.OverallScorePercent)
+            </NavLink>
+            @ExtraActions
+        </div>
+    }
 }
 
 
 @code {
     [Parameter, EditorRequired] public Job Job { get; set; } = null!;
     [Parameter] public RenderFragment? ExtraActions { get; set; }
+
+    // The job-scoped score page (/jobs/{JobId}/score) replaces this with its own prepare-or-tailor
+    // choice section instead — the New Job wizard's step 3 keeps the default single-button CTA.
+    [Parameter] public bool ShowTailorButton { get; set; } = true;
 
     private List<RequirementMatch> GetMissingMustHaves(MatchScoreResult score) =>
         score.RequirementMatches
