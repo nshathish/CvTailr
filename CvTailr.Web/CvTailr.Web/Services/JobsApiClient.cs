@@ -105,6 +105,7 @@ public record JobSummary(
     MatchScoreResult? MatchScoreResult,
     JobStatus Status,
     PrepSummary? PrepSummary,
+    DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
 public enum JobStatus

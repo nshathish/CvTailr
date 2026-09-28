@@ -1,7 +1,16 @@
-@* Uppercase status pill for a job's lifecycle status (Scored / Preparing / Tailored). *@
+@* Uppercase status pill for a job's lifecycle status (Scored / Preparing / Tailored),
+   with a status-coloured dot before the label. Preparing gets a motion-safe pinging
+   halo behind the dot so the animation respects reduced-motion settings. *@
 @using JobStatus = CvTailr.Web.Services.JobStatus
 
-<span class="@GetColorClass() inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide">
+<span class="@GetColorClass() inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider">
+    <span class="relative flex h-2 w-2 shrink-0">
+        @if (Status == JobStatus.Preparing)
+        {
+            <span class="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-current opacity-75"></span>
+        }
+        <span class="relative inline-flex h-2 w-2 rounded-full bg-current"></span>
+    </span>
     @Status
 </span>
 
@@ -11,9 +20,9 @@
 
     private string GetColorClass() => Status switch
     {
-        JobStatus.Scored => "bg-[#FEF3C7] border-[#FDE68A] text-[#92400E]",
-        JobStatus.Preparing => "bg-[#EEECFD] border-[#D9D5FB] text-[#3F34C4]",
-        JobStatus.Tailored => "bg-[#D1FAE5] border-[#A7F3D0] text-[#065F46]",
-        _ => "bg-slate-100 border-slate-200 text-slate-600"
+        JobStatus.Scored => "bg-[#FEF3C7] text-[#92400E]",
+        JobStatus.Preparing => "bg-[#EEECFD] text-[#3F34C4]",
+        JobStatus.Tailored => "bg-[#D1FAE5] text-[#065F46]",
+        _ => "bg-slate-100 text-slate-600"
     };
 }
