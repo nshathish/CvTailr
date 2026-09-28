@@ -1,6 +1,8 @@
 @page "/jobs/{JobId}/score"
 @rendermode InteractiveServer
 
+@using JobStatus = CvTailr.Shared.Jobs.JobStatus
+
 @inject IJobsApiClient JobsApiClient
 @inject IScoreApiClient ScoreApiClient
 @inject ICvApiClient CvApiClient
@@ -10,7 +12,9 @@
 <PageTitle>Score</PageTitle>
 
 <div class="mx-auto max-w-3xl px-4 py-8 space-y-6">
-    <h1 class="text-2xl font-semibold text-slate-900">Match score</h1>
+    <h1 class="text-2xl font-semibold text-slate-900">
+        @(WorkflowState.CurrentJob is { } headerJob ? HeaderTitle(headerJob) : "Match score")
+    </h1>
 
     @if (_isLoadingJob)
     {
@@ -23,19 +27,32 @@
             <p class="mt-1">@_jobLoadError</p>
         </div>
     }
-    else if (WorkflowState.CurrentJob is null)
+    else if (_jobNotFound)
     {
         <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            Job not found.
+            <p class="font-medium">Job not found</p>
+            <NavLink href="dashboard" class="mt-2 inline-block font-medium text-indigo-600 hover:text-indigo-500">
+                Back to Dashboard
+            </NavLink>
         </div>
     }
-    else
+    else if (WorkflowState.CurrentJob is { } job)
     {
+        @if (job.MatchScoreResult is null)
+        {
+            <div class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                <p class="font-medium">This job hasn't been scored yet</p>
+                <NavLink href="dashboard" class="mt-2 inline-block font-medium text-indigo-600 hover:text-indigo-500">
+                    Back to Dashboard
+                </NavLink>
+            </div>
+        }
+
         <button
             @onclick="ScoreAsync"
             disabled="@_isLoading"
             class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
-            @(_isLoading ? "Scoring..." : (WorkflowState.CurrentJob.MatchScoreResult is null ? "Get My Score" : "Re-score"))
+            @(_isLoading ? "Scoring..." : (job.MatchScoreResult is null ? "Get My Score" : "Re-score"))
         </button>
 
         @if (_isLoading)
@@ -73,32 +90,57 @@
             </div>
         }
 
-        <ScoreResultView Job="WorkflowState.CurrentJob" ShowTailorButton="false" />
+        <ScoreResultView Job="job" ShowTailorButton="false" />
 
-        @if (WorkflowState.CurrentJob.MatchScoreResult is not null)
+        @if (job.MatchScoreResult is not null)
         {
             <section class="mt-8">
                 <h2 class="font-space-grotesk text-xl font-semibold text-slate-900">What would you like to do next?</h2>
 
-                <div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <ChoiceCard Title="Prepare, then tailor"
-                                Description="Learn the skills you're missing, prove them in a short assessment, then tailor your CV with evidence you can defend in the interview."
-                                Steps="PrepareSteps"
-                                Detail="@PrepareDetail"
-                                ActionText="Start preparing"
-                                ActionHref="@($"jobs/{JobId}/prepare")"
-                                IsRecommended="RecommendPrepare"
-                                IsPrimary="RecommendPrepare" />
+                @if (job.Status == JobStatus.Preparing)
+                {
+                    <div class="mt-4 rounded-2xl border border-[#E4E6EE] bg-white p-7">
+                        <StatusChip Status="ToWebStatus(job.Status)" />
+                        <p class="mt-3 text-sm text-slate-700">You're preparing for this job</p>
+                        <NavLink href="@($"jobs/{JobId}/prepare")"
+                                 class="mt-4 inline-flex min-h-12 items-center justify-center rounded-lg bg-[#5B4FE0] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#4A3FD0]">
+                            Continue preparing
+                        </NavLink>
+                    </div>
+                }
+                else if (job.Status == JobStatus.Tailored)
+                {
+                    <div class="mt-4 rounded-2xl border border-[#E4E6EE] bg-white p-7">
+                        <StatusChip Status="ToWebStatus(job.Status)" />
+                        <p class="mt-3 text-sm text-slate-700">Your CV is tailored for this job</p>
+                        <NavLink href="@($"jobs/{JobId}/cv")"
+                                 class="mt-4 inline-flex min-h-12 items-center justify-center rounded-lg bg-[#5B4FE0] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#4A3FD0]">
+                            View tailored CV
+                        </NavLink>
+                    </div>
+                }
+                else
+                {
+                    <div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+                        <ChoiceCard Title="Prepare, then tailor"
+                                    Description="Learn the skills you're missing, prove them in a short assessment, then tailor your CV with evidence you can defend in the interview."
+                                    Steps="PrepareSteps"
+                                    Detail="@PrepareDetail"
+                                    ActionText="Start preparing"
+                                    ActionHref="@($"jobs/{JobId}/prepare")"
+                                    IsRecommended="RecommendPrepare"
+                                    IsPrimary="RecommendPrepare" />
 
-                    <ChoiceCard Title="Tailor now"
-                                Description="Go straight to tailored proposals using your CV as it stands. Gaps stay as gaps, and you can still practise for the interview afterwards."
-                                Steps="TailorSteps"
-                                Detail="Best when your score is already strong or the deadline is close"
-                                ActionText="Tailor my CV"
-                                ActionHref="@($"jobs/{JobId}/tailor")"
-                                IsRecommended="@(!RecommendPrepare)"
-                                IsPrimary="@(!RecommendPrepare)" />
-                </div>
+                        <ChoiceCard Title="Tailor now"
+                                    Description="Go straight to tailored proposals using your CV as it stands. Gaps stay as gaps, and you can still practise for the interview afterwards."
+                                    Steps="TailorSteps"
+                                    Detail="Best when your score is already strong or the deadline is close"
+                                    ActionText="Tailor my CV"
+                                    ActionHref="@($"jobs/{JobId}/tailor")"
+                                    IsRecommended="@(!RecommendPrepare)"
+                                    IsPrimary="@(!RecommendPrepare)" />
+                    </div>
+                }
 
                 <NavLink href="dashboard" class="mt-6 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
                     Back to Dashboard
@@ -119,6 +161,7 @@
     private bool _cvMissing;
     private string? _errorMessage;
     private bool _isLoadingJob;
+    private bool _jobNotFound;
     private string? _jobLoadError;
     private CvDocument? _cv;
 
@@ -178,6 +221,18 @@
         job.JdRequirements.Requirements.FirstOrDefault(r => r.Id == requirementId)?.Priority
         ?? RequirementPriority.NiceToHave;
 
+    private static string HeaderTitle(Job job) =>
+        string.IsNullOrWhiteSpace(job.JdRequirements.CompanyName)
+            ? job.JdRequirements.RoleTitle
+            : $"{job.JdRequirements.RoleTitle} · {job.JdRequirements.CompanyName}";
+
+    private static CvTailr.Web.Services.JobStatus ToWebStatus(JobStatus status) => status switch
+    {
+        JobStatus.Preparing => CvTailr.Web.Services.JobStatus.Preparing,
+        JobStatus.Tailored => CvTailr.Web.Services.JobStatus.Tailored,
+        _ => CvTailr.Web.Services.JobStatus.Scored
+    };
+
     protected override async Task OnInitializedAsync()
     {
         if (WorkflowState.CurrentJob?.Id != JobId)
@@ -188,7 +243,8 @@
                 var job = await JobsApiClient.GetJobByIdAsync(JobId);
                 if (job is null)
                 {
-                    _jobLoadError = $"Job '{JobId}' was not found.";
+                    _jobNotFound = true;
+                    WorkflowState.CurrentJob = null;
                 }
                 else
                 {
