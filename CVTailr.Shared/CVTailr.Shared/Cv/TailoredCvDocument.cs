@@ -17,8 +17,8 @@ public class TailoredCvDocument
     /// <summary>Partition key for persistence — one TailoredCvDocument per JobId.</summary>
     public string JobId { get; set; } = string.Empty;
 
-    public List<CvRole> Roles { get; set; } = new();
-    public List<CvSkill> Skills { get; set; } = new();
+    public List<CvRole> Roles { get; set; } = [];
+    public List<CvSkill> Skills { get; set; } = [];
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

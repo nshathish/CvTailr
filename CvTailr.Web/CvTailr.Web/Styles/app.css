@@ -5,6 +5,13 @@
 @source "../Components/**/*.razor";
 @source "../Components/**/*.razor.cs";
 
+/* Loaded via Google Fonts in App.razor's <head> — registered here so `font-space-grotesk` /
+   `font-jetbrains-mono` utilities are available (used by ChoiceCard). */
+@theme {
+    --font-space-grotesk: "Space Grotesk", sans-serif;
+    --font-jetbrains-mono: "JetBrains Mono", monospace;
+}
+
 h1:focus {
     outline: none;
 }
