@@ -35,7 +35,7 @@ CvTailr.Api/
 ├── Data/
 │ └── CosmosLedgerRepository.cs (+ interface)
 ├── Exceptions/
-│ └── one custom exception type per file (e.g. JdSourceResolutionException.cs,
+│ └── one custom exception type per file (e.g. JdUrlException.cs,
 │   UnsupportedCvFormatException.cs) — caught in the relevant Endpoints/ handler
 │   and mapped to a BadRequest with the exception's (user-safe) message
 ├── tasks/

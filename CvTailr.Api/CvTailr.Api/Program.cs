@@ -26,7 +26,6 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.Configure<FoundryOptions>(builder.Configuration.GetSection(FoundryOptions.SectionName));
 builder.Services.Configure<EntraIdOptions>(builder.Configuration.GetSection(EntraIdOptions.SectionName));
 builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection(CosmosOptions.SectionName));
-builder.Services.Configure<FirecrawlOptions>(builder.Configuration.GetSection(FirecrawlOptions.SectionName));
 
 var entraId = builder.Configuration.GetSection(EntraIdOptions.SectionName).Get<EntraIdOptions>() ?? new EntraIdOptions();
 
@@ -45,14 +44,21 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IFoundryClient, FoundryClient>();
 builder.Services.AddScoped<IJdParsingService, JdParsingService>();
-builder.Services.AddHttpClient<IJdSourceResolver, FirecrawlJdSourceResolver>((sp, client) =>
+builder.Services.AddHttpClient<IJdUrlFetcher, JdUrlFetcher>(client =>
 {
-    var fireCrawl = sp.GetRequiredService<IOptions<FirecrawlOptions>>().Value;
-    client.BaseAddress = new Uri(fireCrawl.BaseUrl);
-    client.Timeout = TimeSpan.FromSeconds(10);
-    if (!string.IsNullOrWhiteSpace(fireCrawl.ApiKey))
-        client.DefaultRequestHeaders.Authorization = new("Bearer", fireCrawl.ApiKey);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+    client.DefaultRequestHeaders.Accept.ParseAdd("text/html");
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // Redirects are followed manually in JdUrlFetcher so each hop can be re-validated.
+    AllowAutoRedirect = false,
+    // SSRF protection: resolve the host ourselves and only ever connect to a validated public IP.
+    ConnectCallback = JdUrlFetcher.ConnectCallback
 });
+builder.Services.AddScoped<IJdHtmlExtractor, JdHtmlExtractor>();
+builder.Services.AddScoped<IJdSourceResolver, JdSourceResolver>();
 builder.Services.AddScoped<ICvParsingService, CvParsingService>();
 builder.Services.AddScoped<ICvSourceExtractor, CvSourceExtractor>();
 builder.Services.AddScoped<IScoringService, ScoringService>();

@@ -1,10 +1,19 @@
 namespace CvTailr.Api.Services.Interfaces;
 
 /// <summary>
-/// Resolves the value submitted in a JD-parse request into raw JD text — passing raw text
-/// through unchanged, or fetching the content of a job posting URL.
+/// Resolves a JD-parse request's pasted text or job posting URL into JD text ready for
+/// <see cref="IJdParsingService"/> — for a URL, fetches and extracts it via
+/// <see cref="IJdUrlFetcher"/> and <see cref="IJdHtmlExtractor"/>. Throws
+/// <see cref="CvTailr.Api.Exceptions.JdUrlException"/> on failure.
 /// </summary>
 public interface IJdSourceResolver
 {
-    Task<string> ResolveAsync(string input, CancellationToken cancellationToken = default);
+    Task<JdSource> ResolveAsync(string? jdText, string? jdUrl, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// RoleTitle/CompanyName are populated only when the URL path found them in structured data —
+/// they take priority over the LLM's own extraction. SourceUrl is the final URL after redirects,
+/// present only when the request came from a URL.
+/// </summary>
+public record JdSource(string Text, string? RoleTitle, string? CompanyName, string? SourceUrl);

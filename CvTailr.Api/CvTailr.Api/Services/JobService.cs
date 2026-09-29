@@ -8,12 +8,13 @@ namespace CvTailr.Api.Services;
 
 public class JobService(IJobRepository jobRepository) : IJobService
 {
-    public async Task<Job> CreateFromJdAsync(string userId, JdRequirements jdRequirements, CancellationToken cancellationToken = default)
+    public async Task<Job> CreateFromJdAsync(string userId, JdRequirements jdRequirements, string? sourceUrl, CancellationToken cancellationToken = default)
     {
         var job = new Job
         {
             UserId = userId,
             JdRequirements = jdRequirements,
+            SourceUrl = sourceUrl,
             // JobStatus has no "unscored" member — Scored is the earliest of the three lifecycle
             // stages, so a freshly parsed job starts there until /api/score attaches an actual score.
             Status = JobStatus.Scored
@@ -84,6 +85,7 @@ public class JobService(IJobRepository jobRepository) : IJobService
             job.MatchScoreResult,
             job.Status,
             PrepSummary: null,
+            job.SourceUrl,
             job.CreatedAt,
             job.UpdatedAt);
 }
