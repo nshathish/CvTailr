@@ -17,6 +17,7 @@ public static class CosmosContainerProvisioner
         await database.CreateContainerIfNotExistsAsync(options.CvContainerName, "/userId");
         await database.CreateContainerIfNotExistsAsync(options.JobContainerName, "/userId");
         await database.CreateContainerIfNotExistsAsync(options.TailoredCvContainerName, "/jobId");
+        await database.CreateContainerIfNotExistsAsync(options.JobListingContainerName, "/id");
     }
 
     // LedgerEntry moved to a hierarchical (/cvId, /jobId) partition key as of task 013 — hierarchical

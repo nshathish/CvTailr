@@ -1,6 +1,7 @@
 using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
+using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace CvTailr.Api.Endpoints;
@@ -84,6 +85,43 @@ public static class JobEndpoints
                 "Returns this job's tailored CV if one exists (IsTailored: true), otherwise the master CV as a " +
                 "preview of what would be tailored (IsTailored: false). The master CV is never modified.");
 
+        group.MapPut("/{jobId}/details", async Task<Results<Ok<Job>, BadRequest<string>, NotFound<string>>> (
+                string jobId,
+                UpdateJobDetailsRequest request,
+                IJobService jobService,
+                IJobListingCaptureService jobListingCaptureService,
+                ICurrentUserContext currentUserContext,
+                CancellationToken cancellationToken) =>
+            {
+                var roleTitle = request.RoleTitle?.Trim();
+                var companyName = request.CompanyName?.Trim();
+
+                if (string.IsNullOrEmpty(roleTitle) || string.IsNullOrEmpty(companyName))
+                    return TypedResults.BadRequest("roleTitle and companyName are both required.");
+
+                var userId = currentUserContext.GetUserId();
+
+                Job job;
+                try
+                {
+                    job = await jobService.UpdateDetailsAsync(userId, jobId, roleTitle, companyName, cancellationToken);
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    return TypedResults.NotFound(ex.Message);
+                }
+
+                // Best-effort — never fails or delays this response (see JobListingCaptureService).
+                await jobListingCaptureService.CaptureAsync(job, cancellationToken);
+
+                return TypedResults.Ok(job);
+            })
+            .WithName("UpdateJobDetails")
+            .WithSummary("Update Job details")
+            .WithDescription(
+                "Saves the job title/company confirmed in the New Job wizard's review step and captures this " +
+                "job's shared JobListing (best effort) when it came from a URL.");
+
         group.MapDelete("/{jobId}", async Task<Results<NoContent, NotFound<string>>> (
                 string jobId,
                 IJobService jobService,
@@ -123,3 +161,5 @@ public static class JobEndpoints
 }
 
 public record JobCvResponse(TailoredCvDocument Document, bool IsTailored);
+
+public record UpdateJobDetailsRequest(string? RoleTitle, string? CompanyName);

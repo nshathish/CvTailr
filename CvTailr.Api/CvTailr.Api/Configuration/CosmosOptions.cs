@@ -22,4 +22,7 @@ public class CosmosOptions
 
     /// <summary>Persisted TailoredCvDocuments container, partition key /jobId.</summary>
     public string TailoredCvContainerName { get; set; } = string.Empty;
+
+    /// <summary>User-independent JobListings container, partition key /id.</summary>
+    public string JobListingContainerName { get; set; } = string.Empty;
 }
