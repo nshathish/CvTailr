@@ -12,7 +12,7 @@ public static class JdEndpoints
         var group = app.MapGroup("/api/jd")
             .RequireAuthorization()
             .WithTags("Jd")
-            .WithDescription("Parses a job description (pasted text or a URL) into structured requirements via Azure AI Foundry.");
+            .WithDescription("Parses a job description (pasted text or a URL) into structured requirements using an LLM.");
 
         group.MapPost("/parse", async Task<Results<Ok<Job>, BadRequest<JdParseError>, UnprocessableEntity<JdParseError>>> (
                 ParseJdRequest request,
