@@ -17,8 +17,8 @@ public class JdParsingService(
 
         Return a JSON object matching exactly this shape:
         {
-          "RoleTitle": string,
-          "CompanyName": string,
+          "RoleTitle": string | null,
+          "CompanyName": string | null,
           "Requirements": [
             { "Skill": string, "Priority": "MustHave" | "NiceToHave", "YearsRequired": string | null, "Notes": string | null }
           ],
@@ -32,15 +32,16 @@ public class JdParsingService(
           of these four languages are emphasized, return an empty array.
         - "Priority" must be exactly "MustHave" or "NiceToHave" for every requirement.
         - Do not invent requirements that aren't supported by the text.
-        - "CompanyName" is the hiring company's name as stated in the job description. If the
-          company name genuinely cannot be determined from the text (e.g. a recruiter posting
-          with no company disclosed), return an empty string rather than guessing or inventing one.
+        - "RoleTitle" is the job title as stated in the text. If it genuinely cannot be determined,
+          return null. Never return a placeholder like "Unknown" or an invented title.
+        - "CompanyName" is the hiring company's name as stated in the text. If it genuinely cannot
+          be determined (e.g. a recruiter posting with no company disclosed), return null. Never
+          return a placeholder like "Unknown" or an invented name.
         """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;
 
-    public async Task<JdRequirements> ParseAsync(string rawJdText, string? roleTitle, string? companyName,
-        CancellationToken cancellationToken = default)
+    public async Task<JdRequirements> ParseAsync(string rawJdText, CancellationToken cancellationToken = default)
     {
         var result = await foundryClient.GetStructuredCompletionAsync<JdRequirements>(
             SystemPrompt,
@@ -49,13 +50,6 @@ public class JdParsingService(
             cancellationToken);
 
         result.RawJdText = rawJdText;
-
-        if (!string.IsNullOrWhiteSpace(roleTitle))
-            result.RoleTitle = roleTitle.Trim();
-
-        if (!string.IsNullOrWhiteSpace(companyName))
-            result.CompanyName = companyName.Trim();
-
         return result;
     }
 }

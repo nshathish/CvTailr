@@ -13,6 +13,9 @@ public class Job
     public JdRequirements JdRequirements { get; set; } = new();
     public MatchScoreResult? MatchScoreResult { get; set; }
     public JobStatus Status { get; set; } = JobStatus.Scored;
+
+    /// <summary>The job posting URL this Job was parsed from, or null if it came from pasted text.</summary>
+    public string? SourceUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

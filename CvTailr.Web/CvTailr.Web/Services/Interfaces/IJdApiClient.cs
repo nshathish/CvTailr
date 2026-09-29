@@ -1,8 +1,9 @@
-using CvTailr.Shared.Jobs;
+using CvTailr.Web.Services;
 
 namespace CvTailr.Web.Services.Interfaces;
 
 public interface IJdApiClient
 {
-    Task<Job> ParseJdAsync(string jdText, string? roleTitle, string? companyName, CancellationToken ct = default);
+    /// <summary>Exactly one of jdText/jdUrl must be non-empty.</summary>
+    Task<JdParseOutcome> ParseJdAsync(string? jdText, string? jdUrl, CancellationToken ct = default);
 }

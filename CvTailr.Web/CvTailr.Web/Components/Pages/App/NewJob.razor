@@ -15,35 +15,66 @@
         {
             <h1 class="text-xl font-semibold text-slate-900">Paste a job description</h1>
 
-            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700">Job title <span class="font-normal text-slate-400">(optional)</span></label>
-                    <input
-                        @bind="_roleTitle"
-                        type="text"
-                        placeholder="e.g. Senior Software Engineer"
-                        class="mt-1 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700">Company name <span class="font-normal text-slate-400">(optional)</span></label>
-                    <input
-                        @bind="_companyName"
-                        type="text"
-                        placeholder="e.g. Acme Corp"
-                        class="mt-1 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-                </div>
+            <div class="mt-4 inline-flex rounded-[10px] bg-[#F1F2F6] p-1">
+                <button
+                    type="button"
+                    @onclick="@(() => SetMode(JdInputMode.Text))"
+                    class="@GetSegmentClass(JdInputMode.Text) rounded-[8px] px-4 py-1.5 text-sm font-medium transition-colors">
+                    Paste text
+                </button>
+                <button
+                    type="button"
+                    @onclick="@(() => SetMode(JdInputMode.Link))"
+                    class="@GetSegmentClass(JdInputMode.Link) rounded-[8px] px-4 py-1.5 text-sm font-medium transition-colors">
+                    Paste link
+                </button>
             </div>
 
             <div class="mt-4 space-y-3">
-                <textarea
-                    @bind="_jdText"
-                    rows="12"
-                    placeholder="Paste the raw job description text here..."
-                    class="w-full rounded-md border border-slate-300 p-3 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
+                @if (_inputMode == JdInputMode.Text)
+                {
+                    <textarea
+                        @bind="_jdText"
+                        @bind:event="oninput"
+                        rows="12"
+                        placeholder="Paste the raw job description text here..."
+                        class="w-full rounded-md border border-slate-300 p-3 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"></textarea>
+                }
+                else
+                {
+                    <div>
+                        <input
+                            @bind="_jdUrl"
+                            @bind:event="oninput"
+                            type="url"
+                            placeholder="https://company.com/careers/job-title"
+                            class="w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                        <p class="mt-1.5 text-[13px] text-slate-500">
+                            Works best with company career pages. LinkedIn and Indeed often block this, so paste the text instead.
+                        </p>
+
+                        @if (_linkErrorKind is not null)
+                        {
+                            <div class="mt-2 text-[14px] text-[#9F1239]">
+                                @if (_linkErrorKind == JdUrlErrorKind.NotAllowed)
+                                {
+                                    <span>That link can't be used. Check it's a public job page.</span>
+                                }
+                                else
+                                {
+                                    <span>We couldn't read that page.</span>
+                                    <button type="button" @onclick="SwitchToTextMode" class="ml-1 font-medium underline hover:no-underline">
+                                        Paste the text instead
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
 
                 <button
                     @onclick="ParseAsync"
-                    disabled="@(_isParsing || string.IsNullOrWhiteSpace(_jdText))"
+                    disabled="@(_isParsing || !CanParse)"
                     class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
                     @(_isParsing ? "Parsing..." : "Parse")
                 </button>
@@ -53,7 +84,7 @@
             {
                 <div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
                     <Blazicon Svg="Lucide.LoaderCircle" class="h-4 w-4 animate-spin text-indigo-600" aria-hidden="true" />
-                    <span>Parsing job description — this may take a moment...</span>
+                    <span>@(_inputMode == JdInputMode.Link ? "Reading the job page…" : "Parsing job description — this may take a moment...")</span>
                 </div>
             }
 
@@ -71,15 +102,44 @@
 
             <h1 class="text-xl font-semibold text-slate-900">Review details</h1>
 
-            <div class="mt-4 space-y-4">
+            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                    <h2 class="text-lg font-semibold text-slate-900">@jd.RoleTitle</h2>
-                    @if (!string.IsNullOrWhiteSpace(jd.CompanyName))
+                    <label class="block text-sm font-medium text-slate-700">Job title</label>
+                    <input
+                        @bind="_roleTitleInput"
+                        @bind:event="oninput"
+                        type="text"
+                        placeholder="e.g. Senior Software Engineer"
+                        class="@GetReviewFieldClass(_roleTitleMissing) mt-1 w-full rounded-md p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                    @if (_roleTitleMissing)
                     {
-                        <p class="mt-0.5 text-sm text-slate-600">@jd.CompanyName</p>
+                        <p class="mt-1 text-[13px] text-[#92400E]">We couldn't find the job title. Please add it.</p>
                     }
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Company name</label>
+                    <input
+                        @bind="_companyNameInput"
+                        @bind:event="oninput"
+                        type="text"
+                        placeholder="e.g. Acme Corp"
+                        class="@GetReviewFieldClass(_companyNameMissing) mt-1 w-full rounded-md p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                    @if (_companyNameMissing)
+                    {
+                        <p class="mt-1 text-[13px] text-[#92400E]">We couldn't find the company. Please add it.</p>
+                    }
+                </div>
+            </div>
 
+            @if (!string.IsNullOrWhiteSpace(WorkflowState.CurrentJob.SourceUrl))
+            {
+                <p class="mt-2 text-[13px] text-slate-500">
+                    Parsed from
+                    <a href="@WorkflowState.CurrentJob.SourceUrl" target="_blank" rel="noopener" class="font-medium text-slate-600 underline hover:text-slate-900">@GetHost(WorkflowState.CurrentJob.SourceUrl)</a>
+                </p>
+            }
+
+            <div class="mt-4 space-y-4">
                 <div>
                     <h3 class="text-sm font-medium text-slate-700">Emphasized languages</h3>
                     @if (jd.EmphasizedLanguages.Count == 0)
@@ -129,7 +189,8 @@
                 </button>
                 <button
                     @onclick="GoToStep3Async"
-                    class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">
+                    disabled="@(!CanContinueFromReview)"
+                    class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
                     Continue
                 </button>
             </div>
@@ -193,26 +254,86 @@
 @code {
     private static readonly string[] StepLabels = ["Paste JD", "Review details", "Match & score"];
 
+    private enum JdInputMode { Text, Link }
+
     private int _currentStep = 1;
+    private JdInputMode _inputMode = JdInputMode.Text;
     private string _jdText = string.Empty;
-    private string? _roleTitle;
-    private string? _companyName;
+    private string _jdUrl = string.Empty;
     private bool _isParsing;
     private string? _parseErrorMessage;
+    private JdUrlErrorKind? _linkErrorKind;
+    private string _roleTitleInput = string.Empty;
+    private string _companyNameInput = string.Empty;
+    private bool _roleTitleMissing;
+    private bool _companyNameMissing;
     private bool _isScoring;
     private bool _cvMissing;
     private string? _scoreErrorMessage;
     private bool _hasTriggeredScoring;
 
+    private bool CanParse => _inputMode switch
+    {
+        JdInputMode.Text => !string.IsNullOrWhiteSpace(_jdText),
+        JdInputMode.Link => !string.IsNullOrWhiteSpace(_jdUrl) &&
+                             (_jdUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                              _jdUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)),
+        _ => false
+    };
+
+    private bool CanContinueFromReview =>
+        !string.IsNullOrWhiteSpace(_roleTitleInput) && !string.IsNullOrWhiteSpace(_companyNameInput);
+
+    private void SetMode(JdInputMode mode)
+    {
+        if (_inputMode == mode)
+            return;
+
+        _inputMode = mode;
+        _linkErrorKind = null;
+        _parseErrorMessage = null;
+    }
+
+    private void SwitchToTextMode() => SetMode(JdInputMode.Text);
+
+    private string GetSegmentClass(JdInputMode mode) => mode == _inputMode
+        ? "bg-white text-[#4A3FD0] shadow-sm"
+        : "text-slate-500 hover:text-slate-700";
+
+    private static string GetReviewFieldClass(bool isMissing) => isMissing
+        ? "border border-[#F59E0B]"
+        : "border border-slate-300";
+
+    private static string GetHost(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : url;
+
     private async Task ParseAsync()
     {
+        if (!CanParse)
+            return;
+
         _isParsing = true;
         _parseErrorMessage = null;
+        _linkErrorKind = null;
 
         try
         {
-            var job = await JdApiClient.ParseJdAsync(_jdText, _roleTitle, _companyName);
+            var jdText = _inputMode == JdInputMode.Text ? _jdText : null;
+            var jdUrl = _inputMode == JdInputMode.Link ? _jdUrl.Trim() : null;
+
+            var outcome = await JdApiClient.ParseJdAsync(jdText, jdUrl);
+            if (outcome.UrlError is not null)
+            {
+                _linkErrorKind = outcome.UrlError;
+                return;
+            }
+
+            var job = outcome.Job!;
             WorkflowState.CurrentJob = job;
+            _roleTitleInput = job.JdRequirements.RoleTitle ?? string.Empty;
+            _companyNameInput = job.JdRequirements.CompanyName ?? string.Empty;
+            _roleTitleMissing = string.IsNullOrWhiteSpace(_roleTitleInput);
+            _companyNameMissing = string.IsNullOrWhiteSpace(_companyNameInput);
             _currentStep = 2;
         }
         catch (Exception ex)
@@ -229,9 +350,15 @@
 
     private async Task GoToStep3Async()
     {
+        if (WorkflowState.CurrentJob is null || !CanContinueFromReview)
+            return;
+
+        WorkflowState.CurrentJob.JdRequirements.RoleTitle = _roleTitleInput.Trim();
+        WorkflowState.CurrentJob.JdRequirements.CompanyName = _companyNameInput.Trim();
+
         _currentStep = 3;
 
-        if (WorkflowState.CurrentJob?.MatchScoreResult is null)
+        if (WorkflowState.CurrentJob.MatchScoreResult is null)
         {
             _hasTriggeredScoring = false;
             await ScoreAsync();
