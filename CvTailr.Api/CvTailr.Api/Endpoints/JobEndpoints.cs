@@ -1,4 +1,5 @@
 using CvTailr.Api.Data.Interfaces;
+using CvTailr.Api.Services;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Jobs;
@@ -99,12 +100,19 @@ public static class JobEndpoints
                 if (string.IsNullOrEmpty(roleTitle) || string.IsNullOrEmpty(companyName))
                     return TypedResults.BadRequest("roleTitle and companyName are both required.");
 
+                // Always replaces the parse-time value — null when empty/missing or when the
+                // given value turns out invalid/an excluded (job board/ATS/email/social) domain.
+                var companyDomain = string.IsNullOrWhiteSpace(request.CompanyDomain)
+                    ? null
+                    : CompanyDomainResolver.Normalise(request.CompanyDomain);
+
                 var userId = currentUserContext.GetUserId();
 
                 Job job;
                 try
                 {
-                    job = await jobService.UpdateDetailsAsync(userId, jobId, roleTitle, companyName, cancellationToken);
+                    job = await jobService.UpdateDetailsAsync(
+                        userId, jobId, roleTitle, companyName, companyDomain, cancellationToken);
                 }
                 catch (KeyNotFoundException ex)
                 {
@@ -162,4 +170,4 @@ public static class JobEndpoints
 
 public record JobCvResponse(TailoredCvDocument Document, bool IsTailored);
 
-public record UpdateJobDetailsRequest(string? RoleTitle, string? CompanyName);
+public record UpdateJobDetailsRequest(string? RoleTitle, string? CompanyName, string? CompanyDomain);

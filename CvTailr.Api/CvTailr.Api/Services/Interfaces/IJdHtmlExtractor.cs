@@ -15,7 +15,8 @@ public interface IJdHtmlExtractor
 /// priority over whatever the LLM later infers from Text. Location/EmploymentType/DatePosted/
 /// ValidThrough/PostingUrl are likewise JSON-LD-only (null on the plain-text fallback path) and
 /// exist solely for CvTailr.Api's JobListing capture (task 022) — they are never sent to the Web
-/// client.
+/// client. HiringOrganizationUrls (hiringOrganization.url, then each sameAs entry, in order; empty
+/// when absent) feeds CompanyDomain resolution (task 024) and is likewise server-side only.
 /// </summary>
 public record JdHtmlExtractionResult(
     string Text,
@@ -25,4 +26,5 @@ public record JdHtmlExtractionResult(
     string? EmploymentType,
     DateTimeOffset? DatePosted,
     DateTimeOffset? ValidThrough,
-    string? PostingUrl);
+    string? PostingUrl,
+    List<string> HiringOrganizationUrls);

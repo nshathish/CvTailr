@@ -22,7 +22,7 @@ public class JdHtmlExtractor : IJdHtmlExtractor
         return new JdHtmlExtractionResult(
             Truncate(ExtractFallbackText(document)),
             RoleTitle: null, CompanyName: null, Location: null, EmploymentType: null,
-            DatePosted: null, ValidThrough: null, PostingUrl: null);
+            DatePosted: null, ValidThrough: null, PostingUrl: null, HiringOrganizationUrls: []);
     }
 
     private static JdHtmlExtractionResult? TryExtractFromJsonLd(IDocument document)
@@ -59,7 +59,8 @@ public class JdHtmlExtractor : IJdHtmlExtractor
                 GetEmploymentType(jobPosting),
                 GetDateTimeOffset(jobPosting, "datePosted"),
                 GetDateTimeOffset(jobPosting, "validThrough"),
-                GetString(jobPosting, "url"));
+                GetString(jobPosting, "url"),
+                GetHiringOrganizationUrls(jobPosting));
         }
 
         return null;
@@ -135,6 +136,41 @@ public class JdHtmlExtractor : IJdHtmlExtractor
                 .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)),
             _ => null
         };
+    }
+
+    private static List<string> GetHiringOrganizationUrls(JsonElement jobPosting)
+    {
+        if (!jobPosting.TryGetProperty("hiringOrganization", out var org) || org.ValueKind != JsonValueKind.Object)
+            return [];
+
+        var urls = new List<string>();
+
+        var url = GetString(org, "url");
+        if (!string.IsNullOrWhiteSpace(url))
+            urls.Add(url);
+
+        if (org.TryGetProperty("sameAs", out var sameAs))
+        {
+            switch (sameAs.ValueKind)
+            {
+                case JsonValueKind.String:
+                    var value = sameAs.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                        urls.Add(value);
+                    break;
+
+                case JsonValueKind.Array:
+                    foreach (var entry in sameAs.EnumerateArray())
+                    {
+                        if (entry.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(entry.GetString()))
+                            urls.Add(entry.GetString()!);
+                    }
+
+                    break;
+            }
+        }
+
+        return urls;
     }
 
     private static string? GetLocation(JsonElement jobPosting)

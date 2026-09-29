@@ -12,6 +12,7 @@ namespace CvTailr.Api.Services;
 public class CvParsingService(
     ICvRepository cvRepository,
     IFoundryClient foundryClient,
+    ISkillTaggingService skillTaggingService,
     IOptions<FoundryOptions> foundryOptions,
     ILogger<CvParsingService> logger) : ICvParsingService
 {
@@ -72,9 +73,35 @@ public class CvParsingService(
         document.RawSourceText = rawCvSource;
         document.SourceFileName = sourceFileName;
 
+        var previous = await cvRepository.GetByUserIdAsync(userId, cancellationToken);
+
         await cvRepository.UpsertAsync(document, cancellationToken);
 
+        await TagSkillsAsync(document, previous, cancellationToken);
+
         return document;
+    }
+
+    /// <summary>
+    /// Best effort: tagging runs after the document is already saved, so a slow/failing LLM call
+    /// never blocks or fails the upload itself. On failure, the previous tags (if any) are kept
+    /// rather than left null.
+    /// </summary>
+    private async Task TagSkillsAsync(CvDocument document, CvDocument? previous, CancellationToken cancellationToken)
+    {
+        try
+        {
+            document.SkillTags = await skillTaggingService.TagCvAsync(document, cancellationToken);
+            document.SkillTagsUpdatedAt = DateTimeOffset.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "CV skill tagging failed for user {UserId}'s CV; keeping previous tags.", document.UserId);
+            document.SkillTags = previous?.SkillTags;
+            document.SkillTagsUpdatedAt = previous?.SkillTagsUpdatedAt;
+        }
+
+        await cvRepository.UpsertAsync(document, cancellationToken);
     }
 
     public Task<CvDocument?> GetCurrentAsync(string userId, CancellationToken cancellationToken = default) =>

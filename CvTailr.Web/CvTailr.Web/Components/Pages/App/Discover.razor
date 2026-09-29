@@ -1,0 +1,77 @@
+@page "/discover"
+@rendermode InteractiveServer
+
+@using CvTailr.Web.Configuration
+@using Microsoft.Extensions.Options
+
+@inject IJobListingsApiClient JobListingsApiClient
+@inject IOptions<LogoDevOptions> LogoDevOptions
+
+<PageTitle>Discover</PageTitle>
+
+<div class="mx-auto max-w-6xl px-6 py-8">
+    <h1 class="font-space-grotesk text-[22px] font-semibold text-slate-900">Open roles matching your skills</h1>
+    <p class="mt-1 text-sm text-slate-500">Shared by other CVTailr users, matched to your CV's skills.</p>
+
+    @if (_isLoading)
+    {
+        <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            @for (var i = 0; i < 3; i++)
+            {
+                <div class="h-[280px] animate-pulse rounded-[20px] border border-slate-200 bg-slate-100"></div>
+            }
+        </div>
+    }
+    else if (_failed)
+    {
+        <p class="mt-6 text-sm text-slate-500">Couldn't load matching roles.</p>
+    }
+    else if (_matches.Count == 0)
+    {
+        <p class="mt-6 text-sm text-slate-500">No matching roles yet. They'll appear as more jobs are shared.</p>
+    }
+    else
+    {
+        <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach (var match in _matches)
+            {
+                <ListingCard Match="match" />
+            }
+        </div>
+    }
+
+    @if (ShowLogoAttribution)
+    {
+        <a href="https://logo.dev" target="_blank" rel="noopener" class="mt-4 inline-block text-[12px] text-slate-400 hover:text-slate-500">
+            Logos by Logo.dev
+        </a>
+    }
+</div>
+
+@code {
+    private const int MatchesLimit = 50;
+
+    private bool _isLoading = true;
+    private bool _failed;
+    private List<ListingMatch> _matches = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _matches = await JobListingsApiClient.GetMatchesAsync(MatchesLimit);
+        }
+        catch
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private bool ShowLogoAttribution =>
+        !string.IsNullOrWhiteSpace(LogoDevOptions.Value.PublishableKey) &&
+        _matches.Any(m => !string.IsNullOrWhiteSpace(m.CompanyDomain));
+}

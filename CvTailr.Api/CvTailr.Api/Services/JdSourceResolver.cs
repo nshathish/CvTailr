@@ -16,7 +16,8 @@ public class JdSourceResolver(
         {
             return new JdSource(
                 jdText, RoleTitle: null, CompanyName: null, SourceUrl: null,
-                Location: null, EmploymentType: null, DatePosted: null, ValidThrough: null, PostingUrl: null);
+                Location: null, EmploymentType: null, DatePosted: null, ValidThrough: null, PostingUrl: null,
+                HiringOrganizationUrls: []);
         }
 
         var fetchResult = await jdUrlFetcher.FetchAsync(jdUrl!, cancellationToken);
@@ -35,6 +36,7 @@ public class JdSourceResolver(
 
         return new JdSource(
             extraction.Text, extraction.RoleTitle, extraction.CompanyName, fetchResult.FinalUrl,
-            extraction.Location, extraction.EmploymentType, extraction.DatePosted, extraction.ValidThrough, extraction.PostingUrl);
+            extraction.Location, extraction.EmploymentType, extraction.DatePosted, extraction.ValidThrough, extraction.PostingUrl,
+            extraction.HiringOrganizationUrls);
     }
 }

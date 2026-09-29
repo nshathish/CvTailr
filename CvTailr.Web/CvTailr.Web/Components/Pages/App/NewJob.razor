@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 
 @inject IJdApiClient JdApiClient
+@inject IJobsApiClient JobsApiClient
 @inject IScoreApiClient ScoreApiClient
 @inject WorkflowStateService WorkflowState
 
@@ -51,6 +52,9 @@
                             class="w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                         <p class="mt-1.5 text-[13px] text-slate-500">
                             Works best with company career pages. LinkedIn and Indeed often block this, so paste the text instead.
+                        </p>
+                        <p class="mt-1.5 text-[13px] text-slate-500">
+                            Job links you add may be suggested to other users. Nothing about you is shared.
                         </p>
 
                         @if (_linkErrorKind is not null)
@@ -131,6 +135,16 @@
                 </div>
             </div>
 
+            <div class="mt-3">
+                <label class="block text-sm font-medium text-slate-700">Company website <span class="font-normal text-slate-400">(optional)</span></label>
+                <input
+                    @bind="_companyDomainInput"
+                    @bind:event="oninput"
+                    type="text"
+                    placeholder="e.g. monzo.com"
+                    class="mt-1 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            </div>
+
             @if (!string.IsNullOrWhiteSpace(WorkflowState.CurrentJob.SourceUrl))
             {
                 <p class="mt-2 text-[13px] text-slate-500">
@@ -183,15 +197,22 @@
                 </div>
             </div>
 
+            @if (_saveDetailsErrorMessage is not null)
+            {
+                <div class="mt-4 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                    <p class="font-medium">@_saveDetailsErrorMessage</p>
+                </div>
+            }
+
             <div class="mt-6 flex items-center justify-between">
                 <button @onclick="GoBackToStep1" class="text-sm font-medium text-slate-600 hover:text-slate-900">
                     ← Back
                 </button>
                 <button
                     @onclick="GoToStep3Async"
-                    disabled="@(!CanContinueFromReview)"
+                    disabled="@(!CanContinueFromReview || _isSavingDetails)"
                     class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-300">
-                    Continue
+                    @(_isSavingDetails ? "Saving…" : "Continue")
                 </button>
             </div>
         }
@@ -265,8 +286,11 @@
     private JdUrlErrorKind? _linkErrorKind;
     private string _roleTitleInput = string.Empty;
     private string _companyNameInput = string.Empty;
+    private string _companyDomainInput = string.Empty;
     private bool _roleTitleMissing;
     private bool _companyNameMissing;
+    private bool _isSavingDetails;
+    private string? _saveDetailsErrorMessage;
     private bool _isScoring;
     private bool _cvMissing;
     private string? _scoreErrorMessage;
@@ -332,6 +356,7 @@
             WorkflowState.CurrentJob = job;
             _roleTitleInput = job.JdRequirements.RoleTitle ?? string.Empty;
             _companyNameInput = job.JdRequirements.CompanyName ?? string.Empty;
+            _companyDomainInput = job.JdRequirements.CompanyDomain ?? string.Empty;
             _roleTitleMissing = string.IsNullOrWhiteSpace(_roleTitleInput);
             _companyNameMissing = string.IsNullOrWhiteSpace(_companyNameInput);
             _currentStep = 2;
@@ -350,11 +375,34 @@
 
     private async Task GoToStep3Async()
     {
-        if (WorkflowState.CurrentJob is null || !CanContinueFromReview)
+        if (WorkflowState.CurrentJob is null || !CanContinueFromReview || _isSavingDetails)
             return;
 
-        WorkflowState.CurrentJob.JdRequirements.RoleTitle = _roleTitleInput.Trim();
-        WorkflowState.CurrentJob.JdRequirements.CompanyName = _companyNameInput.Trim();
+        _isSavingDetails = true;
+        _saveDetailsErrorMessage = null;
+
+        try
+        {
+            var companyDomain = _companyDomainInput.Trim();
+            WorkflowState.CurrentJob = await JobsApiClient.UpdateJobDetailsAsync(
+                WorkflowState.CurrentJob.Id,
+                _roleTitleInput.Trim(),
+                _companyNameInput.Trim(),
+                string.IsNullOrEmpty(companyDomain) ? null : companyDomain);
+
+            // The Api normalises CompanyDomain (may differ from what was typed) — reflect that if
+            // the user comes back to this step (e.g. via "Back" from step 3).
+            _companyDomainInput = WorkflowState.CurrentJob.JdRequirements.CompanyDomain ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            _saveDetailsErrorMessage = "We couldn't save these details. Please try again.";
+            return;
+        }
+        finally
+        {
+            _isSavingDetails = false;
+        }
 
         _currentStep = 3;
 

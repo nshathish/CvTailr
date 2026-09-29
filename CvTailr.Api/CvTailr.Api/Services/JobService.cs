@@ -28,13 +28,15 @@ public class JobService(IJobRepository jobRepository) : IJobService
     }
 
     public async Task<Job> UpdateDetailsAsync(
-        string userId, string jobId, string roleTitle, string companyName, CancellationToken cancellationToken = default)
+        string userId, string jobId, string roleTitle, string companyName, string? companyDomain,
+        CancellationToken cancellationToken = default)
     {
         var job = await jobRepository.GetByIdAsync(userId, jobId, cancellationToken)
             ?? throw new KeyNotFoundException($"Job '{jobId}' was not found for this user.");
 
         job.JdRequirements.RoleTitle = roleTitle;
         job.JdRequirements.CompanyName = companyName;
+        job.JdRequirements.CompanyDomain = companyDomain;
         job.UpdatedAt = DateTimeOffset.UtcNow;
 
         await jobRepository.UpsertAsync(job, cancellationToken);

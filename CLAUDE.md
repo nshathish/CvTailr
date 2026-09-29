@@ -35,7 +35,29 @@ in case."
 Projects:
 
 - `CvTailr.Shared` — core domain models (CvDocument, JdRequirements,
-  MatchScoreResult, LedgerEntry). .NET class library.
+  MatchScoreResult, LedgerEntry, JobListing). .NET class library.
+  `JobListing` is a user-independent cache of a job posting captured
+  when a user parses a JD from a URL — `CanonicalUrl` exists purely as
+  a de-duplication key and is never shown to users; `ApplyUrl` is the
+  link users actually see for opening the original posting. `Job`
+  carries an optional `SourceMetadata` (`JobSourceMetadata`: Location,
+  EmploymentType, DatePosted, ValidThrough, PostingUrl) — the JSON-LD
+  extras from a parsed URL, held on the Job purely so the `JobListing`
+  capture can use them once the user confirms RoleTitle/CompanyName in
+  the New Job wizard's review step, not for display. `JdRequirements`
+  and `JobListing` both carry a nullable `CompanyDomain` (e.g.
+  "monzo.com") for showing the company logo — found at parse time from
+  the JD source (never inferred from the company name), correctable by
+  the user in the review step, and null when it can't be determined
+  with confidence. `JobListing.Requirements` is `JobListingRequirement`
+  (a `JdRequirement` plus `Tags`, 1-4 word skill/technology/practice
+  names from CvTailr.Api's skill tagging), and `JobListing.SkillTags`
+  is the distinct union of all its requirements' tags; `CvDocument`
+  carries a matching nullable `SkillTags`/`SkillTagsUpdatedAt` (null
+  means "not yet tagged", distinct from an empty list) — the two are
+  matched to rank shared listings against a user's master CV. `Job.
+  JobListingId` links a Job back to the shared listing it was captured
+  into or added from, if any.
 - `CvTailr.Api` — .NET 10 Minimal API. The "brain": parsing, scoring,
   tailoring, ledger, drill-question generation. References Shared directly.
 - `CvTailr.Web` — Blazor app. CV/JD authoring, score review, tailoring

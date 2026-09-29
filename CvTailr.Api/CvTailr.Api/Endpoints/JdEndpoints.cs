@@ -1,4 +1,5 @@
 using CvTailr.Api.Exceptions;
+using CvTailr.Api.Services;
 using CvTailr.Api.Services.Interfaces;
 using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -48,6 +49,12 @@ public static class JdEndpoints
                     jdRequirements.RoleTitle = source.RoleTitle;
                 if (!string.IsNullOrWhiteSpace(source.CompanyName))
                     jdRequirements.CompanyName = source.CompanyName;
+
+                // First valid candidate wins: hiringOrganization URLs, then the source page's own
+                // domain, then the LLM's guess — each normalised and checked against the exclusion
+                // list (job boards/ATS hosts, generic email/social domains).
+                jdRequirements.CompanyDomain = CompanyDomainResolver.Resolve(
+                    source.HiringOrganizationUrls, source.SourceUrl, jdRequirements.CompanyDomain);
 
                 var sourceMetadata = HasAnySourceMetadata(source)
                     ? new JobSourceMetadata

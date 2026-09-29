@@ -7,6 +7,10 @@ public interface IJobsApiClient
 {
     Task<Job?> GetJobByIdAsync(string jobId, CancellationToken ct = default);
 
+    /// <summary>Saves the job title/company/website confirmed in the New Job wizard's review step.</summary>
+    Task<Job> UpdateJobDetailsAsync(
+        string jobId, string roleTitle, string companyName, string? companyDomain, CancellationToken ct = default);
+
     Task<JobCvResponse?> GetJobCvAsync(string jobId, CancellationToken ct = default);
 
     Task<List<JobSummary>> GetJobsAsync(CancellationToken ct = default);
