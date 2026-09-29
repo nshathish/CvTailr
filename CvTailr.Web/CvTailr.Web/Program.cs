@@ -13,6 +13,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddDistributedMemoryCache();
 
+builder.Services.Configure<LogoDevOptions>(builder.Configuration.GetSection(LogoDevOptions.SectionName));
+
 builder.Services.Configure<MsalDistributedTokenCacheAdapterOptions>(options => { options.Encrypt = true; });
 
 builder.Services
@@ -32,6 +34,7 @@ builder.Services.AddAntiforgery();
 builder.Services.AddScoped<IJdApiClient, JdApiClient>();
 builder.Services.AddScoped<ICvApiClient, CvApiClient>();
 builder.Services.AddScoped<IJobsApiClient, JobsApiClient>();
+builder.Services.AddScoped<IJobListingsApiClient, JobListingsApiClient>();
 builder.Services.AddScoped<IScoreApiClient, ScoreApiClient>();
 builder.Services.AddScoped<ITailorApiClient, TailorApiClient>();
 builder.Services.AddScoped<WorkflowStateService>();

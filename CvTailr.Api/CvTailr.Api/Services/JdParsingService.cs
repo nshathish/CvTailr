@@ -19,6 +19,7 @@ public class JdParsingService(
         {
           "RoleTitle": string | null,
           "CompanyName": string | null,
+          "CompanyDomain": string | null,
           "Requirements": [
             { "Skill": string, "Priority": "MustHave" | "NiceToHave", "YearsRequired": string | null, "Notes": string | null }
           ],
@@ -37,6 +38,10 @@ public class JdParsingService(
         - "CompanyName" is the hiring company's name as stated in the text. If it genuinely cannot
           be determined (e.g. a recruiter posting with no company disclosed), return null. Never
           return a placeholder like "Unknown" or an invented name.
+        - "CompanyDomain" is the hiring company's own website domain (e.g. "monzo.com"). Return it
+          ONLY when the text explicitly contains the company's own website URL or an email address
+          at the company's own domain. Otherwise return null. Never infer a domain from the
+          company name alone.
         """;
 
     private readonly FoundryOptions _foundryOptions = foundryOptions.Value;

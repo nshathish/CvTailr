@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using CvTailr.Api.Data.Interfaces;
 using CvTailr.Api.Services.Interfaces;
+using CvTailr.Shared.Jd;
 using CvTailr.Shared.Jobs;
 
 namespace CvTailr.Api.Services;
@@ -14,6 +15,8 @@ namespace CvTailr.Api.Services;
 /// </summary>
 public class JobListingCaptureService(
     IJobListingRepository jobListingRepository,
+    IJobRepository jobRepository,
+    ISkillTaggingService skillTaggingService,
     ILogger<JobListingCaptureService> logger) : IJobListingCaptureService
 {
     private const int MinRequirements = 3;
@@ -49,6 +52,13 @@ public class JobListingCaptureService(
         try
         {
             var existing = await jobListingRepository.GetAsync(listingId, cancellationToken);
+            // Tagging costs an LLM call, so it only re-runs when the requirements actually
+            // changed since the last capture — an unrelated field (e.g. RoleTitle) shouldn't
+            // trigger it.
+            var requirements = existing is not null && RequirementsMatch(existing.Requirements, jd.Requirements)
+                ? existing.Requirements
+                : await TagRequirementsAsync(jd.Requirements, cancellationToken);
+
             var now = DateTimeOffset.UtcNow;
             var metadata = job.SourceMetadata;
 
@@ -60,11 +70,13 @@ public class JobListingCaptureService(
                 SourceHost = sourceHost,
                 RoleTitle = jd.RoleTitle!,
                 CompanyName = jd.CompanyName!,
+                CompanyDomain = jd.CompanyDomain,
                 Location = metadata?.Location,
                 EmploymentType = metadata?.EmploymentType,
                 DatePosted = metadata?.DatePosted,
                 ValidThrough = metadata?.ValidThrough,
-                Requirements = jd.Requirements,
+                Requirements = requirements,
+                SkillTags = requirements.SelectMany(r => r.Tags).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                 FirstSeenAt = existing?.FirstSeenAt ?? now,
                 LastSeenAt = now,
                 SubmissionCount = (existing?.SubmissionCount ?? 0) + 1,
@@ -72,11 +84,59 @@ public class JobListingCaptureService(
             };
 
             await jobListingRepository.UpsertAsync(listing, cancellationToken);
+
+            try
+            {
+                job.JobListingId = listingId;
+                await jobRepository.UpsertAsync(job, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex, "JobListing capture: failed to set JobListingId on the job for listing {ListingId} ({SourceHost}).",
+                    listingId, sourceHost);
+            }
         }
         catch (Exception ex)
         {
+            // Covers tagging failures too ("if tagging fails, log and skip the capture") — a
+            // thrown exception from TagRequirementsAsync surfaces here just like any other
+            // failure in this block, and nothing has been upserted yet at that point.
             logger.LogWarning(ex, "JobListing capture failed for listing {ListingId} ({SourceHost}).", listingId, sourceHost);
         }
+    }
+
+    private async Task<List<JobListingRequirement>> TagRequirementsAsync(
+        List<JdRequirement> requirements, CancellationToken cancellationToken)
+    {
+        var tagsByIndex = await skillTaggingService.TagRequirementsAsync(requirements, cancellationToken);
+
+        return requirements.Select((requirement, index) => new JobListingRequirement
+        {
+            Skill = requirement.Skill,
+            Priority = requirement.Priority,
+            YearsRequired = requirement.YearsRequired,
+            Notes = requirement.Notes,
+            Tags = index < tagsByIndex.Count ? tagsByIndex[index] : []
+        }).ToList();
+    }
+
+    /// <summary>Compares Skill and Priority, in order — the fields tagging actually depends on.</summary>
+    private static bool RequirementsMatch(List<JobListingRequirement> existing, List<JdRequirement> incoming)
+    {
+        if (existing.Count != incoming.Count)
+            return false;
+
+        for (var i = 0; i < existing.Count; i++)
+        {
+            if (!string.Equals(existing[i].Skill, incoming[i].Skill, StringComparison.Ordinal) ||
+                existing[i].Priority != incoming[i].Priority)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

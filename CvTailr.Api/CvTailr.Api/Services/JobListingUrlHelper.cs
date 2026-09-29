@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace CvTailr.Api.Services;
 
 /// <summary>
@@ -84,12 +86,40 @@ public static class JobListingUrlHelper
     /// <summary>
     /// Compares the registrable domain of two hosts: the last two labels, or three when the
     /// second-last label is one of co/com/org/gov/ac/net and the last is a two-letter country code.
+    /// Never true when either side is invalid/IP/localhost, even against itself (both null).
     /// </summary>
-    public static bool IsSameRegistrableDomain(string hostA, string hostB) =>
-        string.Equals(GetRegistrableDomain(hostA), GetRegistrableDomain(hostB), StringComparison.OrdinalIgnoreCase);
-
-    private static string GetRegistrableDomain(string host)
+    public static bool IsSameRegistrableDomain(string hostA, string hostB)
     {
+        var domainA = GetRegistrableDomain(hostA);
+        var domainB = GetRegistrableDomain(hostB);
+        return domainA is not null && string.Equals(domainA, domainB, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The registrable domain (e.g. "monzo.com") of a URL, host, or bare domain: lowercases,
+    /// strips scheme/path/query/port and a leading "www.", then keeps the last two labels (three
+    /// for co.uk-style suffixes — see <see cref="IsSameRegistrableDomain"/>). Null for invalid
+    /// input, IP addresses, and localhost.
+    /// </summary>
+    public static string? GetRegistrableDomain(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return null;
+
+        var host = ExtractHost(input.Trim())?.ToLowerInvariant();
+        if (string.IsNullOrEmpty(host))
+            return null;
+
+        if (host.StartsWith("www.", StringComparison.Ordinal))
+            host = host[4..];
+
+        if (host.Length == 0 ||
+            string.Equals(host, "localhost", StringComparison.Ordinal) ||
+            IPAddress.TryParse(host, out _))
+        {
+            return null;
+        }
+
         var labels = host.Split('.', StringSplitOptions.RemoveEmptyEntries);
         if (labels.Length <= 2)
             return host;
@@ -100,6 +130,21 @@ public static class JobListingUrlHelper
         takeCount = Math.Min(takeCount, labels.Length);
 
         return string.Join('.', labels.Skip(labels.Length - takeCount));
+    }
+
+    /// <summary>
+    /// Resolves the host from either an absolute URL or a bare host/domain (which has no scheme,
+    /// so it isn't itself a valid absolute URI) by re-parsing the latter with a dummy "http://"
+    /// prefix.
+    /// </summary>
+    private static string? ExtractHost(string input)
+    {
+        if (Uri.TryCreate(input, UriKind.Absolute, out var absolute) && !string.IsNullOrEmpty(absolute.Host))
+            return absolute.Host;
+
+        return Uri.TryCreate("http://" + input, UriKind.Absolute, out var withScheme) && !string.IsNullOrEmpty(withScheme.Host)
+            ? withScheme.Host
+            : null;
     }
 
     private static bool IsDropped(string paramName, IReadOnlySet<string> exactDrops) =>

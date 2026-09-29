@@ -1,0 +1,116 @@
+@* Shared job-listing card (task 027) — visually matches the dashboard job card (tasks 014/017):
+   same container, radius, shadow, spacing and font weights. No delete action or status chip,
+   since the listing isn't the user's own job yet. *@
+@inject IJobListingsApiClient JobListingsApiClient
+@inject NavigationManager NavigationManager
+
+<div class="flex flex-col gap-5 overflow-hidden rounded-[20px] border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-12px_rgba(15,23,42,0.18)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_24px_48px_-16px_rgba(91,79,224,0.35)]">
+    <div class="flex items-start gap-3.5">
+        <CompanyLogo CompanyDomain="Match.CompanyDomain" CompanyName="Match.CompanyName" RoleTitle="Match.RoleTitle" />
+
+        <div class="min-w-0 flex-1">
+            <h2 class="font-space-grotesk line-clamp-2 text-[17px] font-semibold leading-snug text-slate-800" title="@Match.RoleTitle">
+                @Match.RoleTitle
+            </h2>
+            <p class="mt-0.5 text-sm font-normal text-slate-500">@Match.CompanyName</p>
+            @if (LocationLine is not null)
+            {
+                <p class="mt-0.5 text-[13px] text-slate-500">@LocationLine</p>
+            }
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="shrink-0 rounded-full bg-[#EEECFD] px-2.5 py-1 text-[12px] font-semibold text-[#3F34C4]">@Match.MatchPercent% match</span>
+        <span class="text-[12px] text-slate-500">You match:</span>
+        @foreach (var skill in Match.MatchedSkills.Take(3))
+        {
+            <span class="line-clamp-1 max-w-[10rem] rounded-full bg-[#F1F2F6] px-2.5 py-1 text-[12px] font-medium text-[#3B4152]">@skill</span>
+        }
+        @if (Match.MatchedSkills.Count > 3)
+        {
+            <span class="text-[12px] font-medium text-slate-500">+@(Match.MatchedSkills.Count - 3)</span>
+        }
+    </div>
+
+    <div class="mt-auto flex items-center gap-3">
+        <button type="button"
+                @onclick="ScoreAgainstMyCvAsync"
+                disabled="@_isAdding"
+                class="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-[#5B4FE0] text-[15px] font-semibold text-white transition-colors hover:bg-[#4A3FD0] disabled:cursor-not-allowed disabled:opacity-70">
+            @if (_isAdding)
+            {
+                <Blazicon Svg="Lucide.LoaderCircle" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <span>Scoring…</span>
+            }
+            else
+            {
+                <span>Score against my CV</span>
+            }
+        </button>
+
+        <a href="@Match.ApplyUrl" target="_blank" rel="noopener noreferrer"
+           class="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] border-[1.5px] border-[#5B4FE0] text-[15px] font-semibold text-[#4A3FD0] transition-colors hover:bg-[#EEECFD]">
+            View job
+            <Blazicon Svg="Lucide.ExternalLink" class="h-4 w-4" aria-hidden="true" />
+        </a>
+    </div>
+
+    @if (_addErrorMessage is not null)
+    {
+        <p class="text-[13px] text-[#9F1239]">@_addErrorMessage</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public ListingMatch Match { get; set; } = null!;
+
+    private bool _isAdding;
+    private string? _addErrorMessage;
+
+    private string? LocationLine
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(Match.Location))
+                parts.Add(Match.Location);
+
+            var employmentType = FormatEmploymentType(Match.EmploymentType);
+            if (employmentType is not null)
+                parts.Add(employmentType);
+
+            return parts.Count == 0 ? null : string.Join(" · ", parts);
+        }
+    }
+
+    private async Task ScoreAgainstMyCvAsync()
+    {
+        if (_isAdding)
+            return;
+
+        _isAdding = true;
+        _addErrorMessage = null;
+
+        try
+        {
+            var jobId = await JobListingsApiClient.AddToMyJobsAsync(Match.ListingId);
+            NavigationManager.NavigateTo($"jobs/{jobId}/score");
+        }
+        catch (Exception)
+        {
+            _addErrorMessage = "Couldn't add this job. Please try again.";
+            _isAdding = false;
+        }
+    }
+
+    private static string? FormatEmploymentType(string? employmentType)
+    {
+        if (string.IsNullOrWhiteSpace(employmentType))
+            return null;
+
+        var withSpaces = employmentType.Replace('_', ' ').Trim().ToLowerInvariant();
+        return withSpaces.Length == 0 ? null : char.ToUpperInvariant(withSpaces[0]) + withSpaces[1..];
+    }
+}

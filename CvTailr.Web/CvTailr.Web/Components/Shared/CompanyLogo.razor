@@ -1,0 +1,47 @@
+@* Company logo tile for a dashboard job card: the existing initial tile (tasks 014/017's size,
+   radius and colours), with a Logo.dev image layered on top when a domain and publishable key
+   are both available. The <img> falls back to the initial underneath via a plain HTML onerror
+   attribute — deliberately not a Blazor @onerror handler — so this keeps working without
+   interactivity. *@
+@using CvTailr.Web.Configuration
+@using Microsoft.Extensions.Options
+
+@inject IOptions<LogoDevOptions> LogoDevOptions
+
+<div class="@GetTileClass() relative flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#EEECFD] text-[20px] font-semibold text-[#4A3FD0]">
+    @GetInitial()
+
+    @if (HasLogo)
+    {
+        <img src="@GetLogoUrl()"
+             alt=""
+             loading="lazy"
+             referrerpolicy="no-referrer"
+             onerror="this.remove()"
+             class="absolute inset-0 size-full rounded-[14px] bg-white object-contain p-1.5" />
+    }
+</div>
+
+@code {
+    [Parameter] public string? CompanyDomain { get; set; }
+    [Parameter] public string? CompanyName { get; set; }
+    [Parameter] public string? RoleTitle { get; set; }
+
+    private bool HasLogo =>
+        !string.IsNullOrWhiteSpace(CompanyDomain) && !string.IsNullOrWhiteSpace(LogoDevOptions.Value.PublishableKey);
+
+    // A logo image is expected to be opaque/white-background, so it needs a visible frame —
+    // the plain initial tile doesn't.
+    private string GetTileClass() => HasLogo ? "border border-[#E4E6EE]" : string.Empty;
+
+    private string GetInitial()
+    {
+        var source = string.IsNullOrWhiteSpace(CompanyName) ? RoleTitle : CompanyName;
+        return string.IsNullOrWhiteSpace(source) ? "?" : source.Trim()[0].ToString().ToUpperInvariant();
+    }
+
+    // fallback=404 (vs. Logo.dev's default 200+monogram) so a missing logo actually triggers the
+    // <img>'s onerror and reveals the initial underneath instead of showing Logo.dev's own guess.
+    private string GetLogoUrl() =>
+        $"https://img.logo.dev/{Uri.EscapeDataString(CompanyDomain!)}?token={Uri.EscapeDataString(LogoDevOptions.Value.PublishableKey)}&size=96&format=png&fallback=404";
+}

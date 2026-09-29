@@ -67,7 +67,7 @@ public class ScoringService(
         CancellationToken cancellationToken = default)
     {
         var userInput = JsonSerializer.Serialize(
-            new { JdRequirements = jdRequirements, CvDocument = cvDocument },
+            new { JdRequirements = BuildJdRequirementsPayload(jdRequirements), CvDocument = cvDocument },
             InputJsonOptions);
 
         var completion = await foundryClient.GetStructuredCompletionAsync<ScoringCompletion>(
@@ -86,6 +86,27 @@ public class ScoringService(
             Rationale = completion.Rationale,
             RequirementMatches = matches
         };
+    }
+
+    // Jobs created from a JobListing (task 026) have no raw JD text — omit the property entirely
+    // rather than sending an empty string, so the model reads the structured Requirements as the
+    // complete picture instead of "raw text should have been here but wasn't".
+    private static Dictionary<string, object?> BuildJdRequirementsPayload(JdRequirements jdRequirements)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["Id"] = jdRequirements.Id,
+            ["RoleTitle"] = jdRequirements.RoleTitle,
+            ["CompanyName"] = jdRequirements.CompanyName,
+            ["CompanyDomain"] = jdRequirements.CompanyDomain,
+            ["Requirements"] = jdRequirements.Requirements,
+            ["EmphasizedLanguages"] = jdRequirements.EmphasizedLanguages
+        };
+
+        if (!string.IsNullOrEmpty(jdRequirements.RawJdText))
+            payload["RawJdText"] = jdRequirements.RawJdText;
+
+        return payload;
     }
 
     private List<RequirementMatch> ReconcileMatches(

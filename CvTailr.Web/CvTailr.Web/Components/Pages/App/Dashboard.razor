@@ -2,11 +2,16 @@
 @rendermode InteractiveServer
 
 @using System.Globalization
+@using CvTailr.Web.Configuration
+@using Microsoft.Extensions.Options
 @using JobStatus = CvTailr.Web.Services.JobStatus
 
 @inject IJobsApiClient JobsApiClient
+@inject IJobListingsApiClient JobListingsApiClient
 @inject ICvApiClient CvApiClient
 @inject NavigationManager NavigationManager
+@inject IOptions<LogoDevOptions> LogoDevOptions
+@inject ILogger<Dashboard> Logger
 
 <PageTitle>Your jobs</PageTitle>
 
@@ -66,9 +71,9 @@
             {
                 <div class="flex flex-col gap-5 overflow-hidden rounded-[20px] border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-12px_rgba(15,23,42,0.18)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_24px_48px_-16px_rgba(91,79,224,0.35)]">
                     <div class="flex items-start gap-3.5">
-                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#EEECFD] text-[20px] font-semibold text-[#4A3FD0]">
-                            @GetCompanyInitial(job)
-                        </div>
+                        <CompanyLogo CompanyDomain="job.JdRequirements.CompanyDomain"
+                                     CompanyName="job.JdRequirements.CompanyName"
+                                     RoleTitle="job.JdRequirements.RoleTitle" />
 
                         <div class="min-w-0 flex-1">
                             <h2 class="font-space-grotesk line-clamp-2 text-[17px] font-semibold leading-snug text-slate-800" title="@job.JdRequirements.RoleTitle">
@@ -163,6 +168,50 @@
             }
         </div>
     }
+
+    @if (!_matchesFailed)
+    {
+        <div class="mt-12">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <h2 class="font-space-grotesk text-[22px] font-semibold text-slate-900">Open roles matching your skills</h2>
+                @if (!_isLoadingMatches && _matches.Count > 0)
+                {
+                    <NavLink href="discover" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">See all →</NavLink>
+                }
+            </div>
+            <p class="mt-1 text-sm text-slate-500">Shared by other CVTailr users, matched to your CV's skills.</p>
+
+            @if (_isLoadingMatches)
+            {
+                <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    @for (var i = 0; i < 3; i++)
+                    {
+                        <div class="h-[280px] animate-pulse rounded-[20px] border border-slate-200 bg-slate-100"></div>
+                    }
+                </div>
+            }
+            else if (_matches.Count == 0)
+            {
+                <p class="mt-6 text-sm text-slate-500">No matching roles yet. They'll appear as more jobs are shared.</p>
+            }
+            else
+            {
+                <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach (var match in _matches)
+                    {
+                        <ListingCard Match="match" />
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (ShowLogoAttribution)
+    {
+        <a href="https://logo.dev" target="_blank" rel="noopener" class="mt-4 inline-block text-[12px] text-slate-400 hover:text-slate-500">
+            Logos by Logo.dev
+        </a>
+    }
 </div>
 
 @code {
@@ -173,8 +222,16 @@
     private CvDocument? _cv;
     private ConfirmDialog? _confirmDialog;
 
+    private bool _isLoadingMatches = true;
+    private bool _matchesFailed;
+    private List<ListingMatch> _matches = new();
+
     protected override async Task OnInitializedAsync()
     {
+        // Fire-and-forget: the matches section loads independently so a slow match request never
+        // delays "Your jobs" below. LoadMatchesAsync calls StateHasChanged itself once it settles.
+        _ = LoadMatchesAsync();
+
         // CV upload lives in exactly one place (cv/upload) — a logged-in user with no CV is sent
         // there before this page renders anything, rather than duplicating an upload prompt here.
         // `cv is null` after a call that didn't throw is the real "no CV" signal; a genuine load
@@ -209,6 +266,26 @@
         }
     }
 
+    private const int DashboardMatchesLimit = 6;
+
+    private async Task LoadMatchesAsync()
+    {
+        try
+        {
+            _matches = await JobListingsApiClient.GetMatchesAsync(DashboardMatchesLimit);
+        }
+        catch (Exception ex)
+        {
+            _matchesFailed = true;
+            Logger.LogError(ex, "Failed to load job-listing matches for the dashboard.");
+        }
+        finally
+        {
+            _isLoadingMatches = false;
+            StateHasChanged();
+        }
+    }
+
     private async Task DeleteJobAsync(JobSummary job)
     {
         var message = string.IsNullOrWhiteSpace(job.JdRequirements.CompanyName)
@@ -234,14 +311,10 @@
         }
     }
 
-    private static string GetCompanyInitial(JobSummary job)
-    {
-        var source = string.IsNullOrWhiteSpace(job.JdRequirements.CompanyName)
-            ? job.JdRequirements.RoleTitle
-            : job.JdRequirements.CompanyName;
-
-        return string.IsNullOrWhiteSpace(source) ? "?" : source.Trim()[0].ToString().ToUpperInvariant();
-    }
+    private bool ShowLogoAttribution =>
+        !string.IsNullOrWhiteSpace(LogoDevOptions.Value.PublishableKey) &&
+        (_jobs.Any(j => !string.IsNullOrWhiteSpace(j.JdRequirements.CompanyDomain)) ||
+         _matches.Any(m => !string.IsNullOrWhiteSpace(m.CompanyDomain)));
 
     private static int GetMatchedCount(MatchScoreResult result) =>
         result.RequirementMatches.Count(m => m.IsMet);

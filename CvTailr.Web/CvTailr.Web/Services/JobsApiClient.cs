@@ -33,6 +33,26 @@ public class JobsApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstr
         return result ?? throw new ApiClientException($"GET /{relativePath} returned an empty response body.");
     }
 
+    public async Task<Job> UpdateJobDetailsAsync(
+        string jobId, string roleTitle, string companyName, string? companyDomain, CancellationToken ct = default)
+    {
+        var relativePath = $"api/jobs/{Uri.EscapeDataString(jobId)}/details";
+        using var response = await DownstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "PUT";
+                options.RelativePath = relativePath;
+            },
+            content: JsonContent.Create(new { roleTitle, companyName, companyDomain }, options: JsonOptions),
+            cancellationToken: ct);
+
+        await ThrowIfUnsuccessfulAsync(response, "PUT", relativePath, ct);
+
+        var result = await response.Content.ReadFromJsonAsync<Job>(JsonOptions, ct);
+        return result ?? throw new ApiClientException($"PUT /{relativePath} returned an empty response body.");
+    }
+
     public async Task<JobCvResponse?> GetJobCvAsync(string jobId, CancellationToken ct = default)
     {
         var relativePath = $"api/jobs/{Uri.EscapeDataString(jobId)}/cv";

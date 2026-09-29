@@ -25,4 +25,13 @@ public class CvDocument
     ///     against MatchScoreResult.ScoredAt or TailoredCvDocument.CreatedAt.
     /// </summary>
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    ///     Up to 60 canonicalised skill/technology/practice tags evidenced by this CV (task 026),
+    ///     used to match against JobListing.SkillTags. Null means "not yet tagged" — distinct from
+    ///     an empty list, which means tagging ran and found nothing.
+    /// </summary>
+    public List<string>? SkillTags { get; set; }
+
+    public DateTimeOffset? SkillTagsUpdatedAt { get; set; }
 }

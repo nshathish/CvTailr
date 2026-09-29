@@ -14,11 +14,13 @@ public interface IJobService
     Task<Job> AttachScoreAsync(string userId, string jobId, MatchScoreResult scoreResult, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sets the review-step-confirmed RoleTitle/CompanyName on JdRequirements. Throws
+    /// Sets the review-step-confirmed RoleTitle/CompanyName/CompanyDomain on JdRequirements —
+    /// companyDomain always replaces whatever was set at parse time, including with null. Throws
     /// KeyNotFoundException if no Job with this id exists for this user.
     /// </summary>
     Task<Job> UpdateDetailsAsync(
-        string userId, string jobId, string roleTitle, string companyName, CancellationToken cancellationToken = default);
+        string userId, string jobId, string roleTitle, string companyName, string? companyDomain,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Throws KeyNotFoundException if no Job with this id exists for this user.</summary>
     Task<Job> MarkTailoredAsync(string userId, string jobId, CancellationToken cancellationToken = default);

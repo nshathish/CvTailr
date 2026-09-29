@@ -17,6 +17,7 @@ public interface IJdSourceResolver
 /// present only when the request came from a URL. Location/EmploymentType/DatePosted/
 /// ValidThrough/PostingUrl are JSON-LD-only extras carried through purely for JobListing capture
 /// (task 022) — server-side only, never part of the Api's response to the Web client.
+/// HiringOrganizationUrls likewise feeds CompanyDomain resolution (task 024) only.
 /// </summary>
 public record JdSource(
     string Text,
@@ -27,4 +28,5 @@ public record JdSource(
     string? EmploymentType,
     DateTimeOffset? DatePosted,
     DateTimeOffset? ValidThrough,
-    string? PostingUrl);
+    string? PostingUrl,
+    List<string> HiringOrganizationUrls);
