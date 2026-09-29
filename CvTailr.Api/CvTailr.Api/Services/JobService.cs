@@ -8,17 +8,34 @@ namespace CvTailr.Api.Services;
 
 public class JobService(IJobRepository jobRepository) : IJobService
 {
-    public async Task<Job> CreateFromJdAsync(string userId, JdRequirements jdRequirements, string? sourceUrl, CancellationToken cancellationToken = default)
+    public async Task<Job> CreateFromJdAsync(
+        string userId, JdRequirements jdRequirements, string? sourceUrl, JobSourceMetadata? sourceMetadata,
+        CancellationToken cancellationToken = default)
     {
         var job = new Job
         {
             UserId = userId,
             JdRequirements = jdRequirements,
             SourceUrl = sourceUrl,
+            SourceMetadata = sourceMetadata,
             // JobStatus has no "unscored" member — Scored is the earliest of the three lifecycle
             // stages, so a freshly parsed job starts there until /api/score attaches an actual score.
             Status = JobStatus.Scored
         };
+
+        await jobRepository.UpsertAsync(job, cancellationToken);
+        return job;
+    }
+
+    public async Task<Job> UpdateDetailsAsync(
+        string userId, string jobId, string roleTitle, string companyName, CancellationToken cancellationToken = default)
+    {
+        var job = await jobRepository.GetByIdAsync(userId, jobId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Job '{jobId}' was not found for this user.");
+
+        job.JdRequirements.RoleTitle = roleTitle;
+        job.JdRequirements.CompanyName = companyName;
+        job.UpdatedAt = DateTimeOffset.UtcNow;
 
         await jobRepository.UpsertAsync(job, cancellationToken);
         return job;

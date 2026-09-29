@@ -6,10 +6,19 @@ namespace CvTailr.Api.Services.Interfaces;
 
 public interface IJobService
 {
-    Task<Job> CreateFromJdAsync(string userId, JdRequirements jdRequirements, string? sourceUrl, CancellationToken cancellationToken = default);
+    Task<Job> CreateFromJdAsync(
+        string userId, JdRequirements jdRequirements, string? sourceUrl, JobSourceMetadata? sourceMetadata,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Throws KeyNotFoundException if no Job with this id exists for this user.</summary>
     Task<Job> AttachScoreAsync(string userId, string jobId, MatchScoreResult scoreResult, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the review-step-confirmed RoleTitle/CompanyName on JdRequirements. Throws
+    /// KeyNotFoundException if no Job with this id exists for this user.
+    /// </summary>
+    Task<Job> UpdateDetailsAsync(
+        string userId, string jobId, string roleTitle, string companyName, CancellationToken cancellationToken = default);
 
     /// <summary>Throws KeyNotFoundException if no Job with this id exists for this user.</summary>
     Task<Job> MarkTailoredAsync(string userId, string jobId, CancellationToken cancellationToken = default);

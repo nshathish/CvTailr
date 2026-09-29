@@ -59,6 +59,8 @@ builder.Services.AddHttpClient<IJdUrlFetcher, JdUrlFetcher>(client =>
 });
 builder.Services.AddScoped<IJdHtmlExtractor, JdHtmlExtractor>();
 builder.Services.AddScoped<IJdSourceResolver, JdSourceResolver>();
+builder.Services.AddScoped<IJobListingRepository, CosmosJobListingRepository>();
+builder.Services.AddScoped<IJobListingCaptureService, JobListingCaptureService>();
 builder.Services.AddScoped<ICvParsingService, CvParsingService>();
 builder.Services.AddScoped<ICvSourceExtractor, CvSourceExtractor>();
 builder.Services.AddScoped<IScoringService, ScoringService>();

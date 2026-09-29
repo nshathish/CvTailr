@@ -12,6 +12,17 @@ public interface IJdHtmlExtractor
 
 /// <summary>
 /// RoleTitle/CompanyName are populated only when found in structured (JSON-LD) data — they take
-/// priority over whatever the LLM later infers from Text.
+/// priority over whatever the LLM later infers from Text. Location/EmploymentType/DatePosted/
+/// ValidThrough/PostingUrl are likewise JSON-LD-only (null on the plain-text fallback path) and
+/// exist solely for CvTailr.Api's JobListing capture (task 022) — they are never sent to the Web
+/// client.
 /// </summary>
-public record JdHtmlExtractionResult(string Text, string? RoleTitle, string? CompanyName);
+public record JdHtmlExtractionResult(
+    string Text,
+    string? RoleTitle,
+    string? CompanyName,
+    string? Location,
+    string? EmploymentType,
+    DateTimeOffset? DatePosted,
+    DateTimeOffset? ValidThrough,
+    string? PostingUrl);

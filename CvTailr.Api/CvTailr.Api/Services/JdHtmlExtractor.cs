@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
@@ -18,7 +19,10 @@ public class JdHtmlExtractor : IJdHtmlExtractor
         if (jsonLdResult is not null)
             return jsonLdResult with { Text = Truncate(jsonLdResult.Text) };
 
-        return new JdHtmlExtractionResult(Truncate(ExtractFallbackText(document)), null, null);
+        return new JdHtmlExtractionResult(
+            Truncate(ExtractFallbackText(document)),
+            RoleTitle: null, CompanyName: null, Location: null, EmploymentType: null,
+            DatePosted: null, ValidThrough: null, PostingUrl: null);
     }
 
     private static JdHtmlExtractionResult? TryExtractFromJsonLd(IDocument document)
@@ -47,7 +51,15 @@ public class JdHtmlExtractor : IJdHtmlExtractor
             if (string.IsNullOrWhiteSpace(text))
                 continue;
 
-            return new JdHtmlExtractionResult(text, GetString(jobPosting, "title"), GetHiringOrganizationName(jobPosting));
+            return new JdHtmlExtractionResult(
+                text,
+                GetString(jobPosting, "title"),
+                GetHiringOrganizationName(jobPosting),
+                GetLocation(jobPosting),
+                GetEmploymentType(jobPosting),
+                GetDateTimeOffset(jobPosting, "datePosted"),
+                GetDateTimeOffset(jobPosting, "validThrough"),
+                GetString(jobPosting, "url"));
         }
 
         return null;
@@ -123,6 +135,75 @@ public class JdHtmlExtractor : IJdHtmlExtractor
                 .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)),
             _ => null
         };
+    }
+
+    private static string? GetLocation(JsonElement jobPosting)
+    {
+        if (string.Equals(GetString(jobPosting, "jobLocationType"), "TELECOMMUTE", StringComparison.OrdinalIgnoreCase))
+            return "Remote";
+
+        if (!jobPosting.TryGetProperty("jobLocation", out var jobLocationElement))
+            return null;
+
+        var place = jobLocationElement.ValueKind == JsonValueKind.Array
+            ? jobLocationElement.EnumerateArray().FirstOrDefault(p => p.ValueKind == JsonValueKind.Object)
+            : jobLocationElement;
+
+        if (place.ValueKind != JsonValueKind.Object ||
+            !place.TryGetProperty("address", out var address) ||
+            address.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var locality = GetString(address, "addressLocality");
+        var country = GetAddressCountry(address);
+
+        if (!string.IsNullOrWhiteSpace(locality) && !string.IsNullOrWhiteSpace(country))
+            return $"{locality}, {country}";
+
+        return !string.IsNullOrWhiteSpace(locality) ? locality : country;
+    }
+
+    private static string? GetAddressCountry(JsonElement address)
+    {
+        if (!address.TryGetProperty("addressCountry", out var country))
+            return null;
+
+        return country.ValueKind switch
+        {
+            JsonValueKind.String => country.GetString(),
+            JsonValueKind.Object => GetString(country, "name"),
+            _ => null
+        };
+    }
+
+    private static string? GetEmploymentType(JsonElement jobPosting)
+    {
+        if (!jobPosting.TryGetProperty("employmentType", out var employmentType))
+            return null;
+
+        return employmentType.ValueKind switch
+        {
+            JsonValueKind.String => employmentType.GetString(),
+            JsonValueKind.Array => employmentType.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .Select(e => e.GetString())
+                .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)),
+            _ => null
+        };
+    }
+
+    private static DateTimeOffset? GetDateTimeOffset(JsonElement jobPosting, string propertyName)
+    {
+        var value = GetString(jobPosting, propertyName);
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        return DateTimeOffset.TryParse(
+            value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var result)
+            ? result
+            : null;
     }
 
     private static string? GetString(JsonElement element, string propertyName) =>

@@ -49,8 +49,21 @@ public static class JdEndpoints
                 if (!string.IsNullOrWhiteSpace(source.CompanyName))
                     jdRequirements.CompanyName = source.CompanyName;
 
+                var sourceMetadata = HasAnySourceMetadata(source)
+                    ? new JobSourceMetadata
+                    {
+                        Location = source.Location,
+                        EmploymentType = source.EmploymentType,
+                        DatePosted = source.DatePosted,
+                        ValidThrough = source.ValidThrough,
+                        PostingUrl = source.PostingUrl
+                    }
+                    : null;
+
                 var userId = currentUserContext.GetUserId();
-                var job = await jobService.CreateFromJdAsync(userId, jdRequirements, source.SourceUrl, cancellationToken);
+                var job = await jobService.CreateFromJdAsync(
+                    userId, jdRequirements, source.SourceUrl, sourceMetadata, cancellationToken);
+
                 return TypedResults.Ok(job);
             })
             .WithName("ParseJd")
@@ -59,6 +72,10 @@ public static class JdEndpoints
                 "Parses a job description — either pasted text or a job posting URL — into structured requirements " +
                 "and persists them as a new Job. Exactly one of jdText/jdUrl must be provided.");
     }
+
+    private static bool HasAnySourceMetadata(JdSource source) =>
+        source.Location is not null || source.EmploymentType is not null ||
+        source.DatePosted is not null || source.ValidThrough is not null || source.PostingUrl is not null;
 }
 
 public record ParseJdRequest(string? JdText, string? JdUrl);
