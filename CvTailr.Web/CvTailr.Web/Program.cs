@@ -64,6 +64,20 @@ app.MapStaticAssets();
 app.MapGroup("/authentication")
     .MapLoginAndLogout();
 
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/dev/token", async (ITokenAcquisition tokenAcquisition, IConfiguration config) =>
+        {
+            var scopes = config.GetSection("DownstreamApi:Scopes").Get<string[]>() ?? [];
+            if (scopes.Length == 0)
+                return Results.Problem("DownstreamApi:Scopes is not configured.");
+            
+            var token = await tokenAcquisition.GetAccessTokenForUserAsync(scopes);
+            return Results.Text(token);
+        })
+        .RequireAuthorization();
+}
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

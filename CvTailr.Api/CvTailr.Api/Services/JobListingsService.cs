@@ -49,8 +49,8 @@ public class JobListingsService(
                 continue;
 
             var score = JobListingMatcher.Calculate(listing.Requirements, tags);
-            if (score.MatchPercent < MinMatchPercent)
-                continue;
+            //if (score.MatchPercent < MinMatchPercent)
+            //    continue;
 
             matches.Add(new JobListingMatch(
                 listing.Id,
