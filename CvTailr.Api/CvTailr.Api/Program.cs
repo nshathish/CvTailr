@@ -1,103 +1,34 @@
-using Azure.Identity;
-using CvTailr.Api.Clients;
-using CvTailr.Api.Configuration;
-using CvTailr.Api.Data;
-using CvTailr.Api.Data.Interfaces;
-using CvTailr.Api.Endpoints;
-using CvTailr.Api.Services;
-using CvTailr.Api.Services.Interfaces;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using CvTailr.Api;
+using CvTailr.Api.Common.Cosmos;
+using CvTailr.Api.Features.Cv;
+using CvTailr.Api.Features.Drill;
+using CvTailr.Api.Features.Jd;
+using CvTailr.Api.Features.Jobs;
+using CvTailr.Api.Features.Ledger;
+using CvTailr.Api.Features.Scoring;
+using CvTailr.Api.Features.Tailoring;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddHttpContextAccessor();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-builder.Services.Configure<FoundryOptions>(builder.Configuration.GetSection(FoundryOptions.SectionName));
-builder.Services.Configure<EntraIdOptions>(builder.Configuration.GetSection(EntraIdOptions.SectionName));
-builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection(CosmosOptions.SectionName));
-
-var entraId = builder.Configuration.GetSection(EntraIdOptions.SectionName).Get<EntraIdOptions>() ?? new EntraIdOptions();
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = entraId.Authority;
-        // External ID tokens are sometimes stamped with the bare ClientId as `aud` rather than
-        // the "api://{clientId}" Application ID URI, depending on how the API's Application ID
-        // URI is configured — accept either form.
-        options.TokenValidationParameters.ValidAudiences = [entraId.Audience, entraId.ClientId];
-    });
-
-builder.Services.AddAuthorization();
-
-builder.Services.AddScoped<IFoundryClient, FoundryClient>();
-builder.Services.AddScoped<IJdParsingService, JdParsingService>();
-builder.Services.AddHttpClient<IJdUrlFetcher, JdUrlFetcher>(client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-    client.DefaultRequestHeaders.Accept.ParseAdd("text/html");
-})
-.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-{
-    // Redirects are followed manually in JdUrlFetcher so each hop can be re-validated.
-    AllowAutoRedirect = false,
-    // SSRF protection: resolve the host ourselves and only ever connect to a validated public IP.
-    ConnectCallback = JdUrlFetcher.ConnectCallback
-});
-builder.Services.AddScoped<IJdHtmlExtractor, JdHtmlExtractor>();
-builder.Services.AddScoped<IJdSourceResolver, JdSourceResolver>();
-builder.Services.AddScoped<IJobListingRepository, CosmosJobListingRepository>();
-builder.Services.AddScoped<ISkillTaggingService, SkillTaggingService>();
-builder.Services.AddScoped<IJobListingCaptureService, JobListingCaptureService>();
-builder.Services.AddScoped<IJobListingsService, JobListingsService>();
-builder.Services.AddScoped<ICvParsingService, CvParsingService>();
-builder.Services.AddScoped<ICvSourceExtractor, CvSourceExtractor>();
-builder.Services.AddScoped<IScoringService, ScoringService>();
-builder.Services.AddScoped<ITailoringService, TailoringService>();
-builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
-
-builder.Services.AddSingleton(sp =>
-{
-    var cosmosOptions = sp.GetRequiredService<IOptions<CosmosOptions>>().Value;
-    var clientOptions = new CosmosClientOptions
-    {
-        // Gateway (HTTP) mode rather than Direct (TCP): works everywhere, including behind
-        // restrictive networks/firewalls and against lightweight emulators that don't expose the
-        // Direct-mode TCP port range.
-        ConnectionMode = ConnectionMode.Gateway,
-        // System.Text.Json (matching the API's own JSON config) rather than the plain
-        // CosmosSerializationOptions path, so every enum — JobStatus included — is stored/read as a
-        // string instead of Cosmos's default int encoding.
-        UseSystemTextJsonSerializerWithOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            Converters = { new JsonStringEnumConverter() }
-        }
-    };
-
-    return string.IsNullOrWhiteSpace(cosmosOptions.AccountKey)
-        ? new CosmosClient(cosmosOptions.Endpoint, new DefaultAzureCredential(), clientOptions)
-        : new CosmosClient(cosmosOptions.Endpoint, cosmosOptions.AccountKey, clientOptions);
-});
-builder.Services.AddScoped<ILedgerRepository, CosmosLedgerRepository>();
-builder.Services.AddScoped<ILedgerService, LedgerService>();
-builder.Services.AddScoped<IDrillService, DrillService>();
-builder.Services.AddScoped<ICvRepository, CosmosCvRepository>();
-builder.Services.AddScoped<IJobRepository, CosmosJobRepository>();
-builder.Services.AddScoped<IJobService, JobService>();
-builder.Services.AddScoped<ITailoredCvRepository, CosmosTailoredCvRepository>();
+builder.Services.AddCommonInfrastructure(builder.Configuration);
+builder.Services.AddCvFeature();
+builder.Services.AddJdFeature();
+builder.Services.AddJobsFeature();
+builder.Services.AddScoringFeature();
+builder.Services.AddTailoringFeature();
+builder.Services.AddLedgerFeature();
+builder.Services.AddDrillFeature();
 
 var app = builder.Build();
 
