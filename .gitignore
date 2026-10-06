@@ -16,3 +16,6 @@ node_modules/
 # Visual Studio local cache/state folder — never committed.
 .vs/
 .claude/tasks/
+
+# Internal Notes
+.docs/
