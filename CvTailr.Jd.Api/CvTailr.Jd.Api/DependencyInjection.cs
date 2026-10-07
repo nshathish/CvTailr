@@ -16,6 +16,18 @@ public static class DependencyInjection
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddMicrosoftIdentityWebApi(configuration.GetSection("AzureAd"));
 
+        // External ID tokens are sometimes stamped with the bare ClientId as `aud` rather than
+        // the "api://{clientId}" Application ID URI, depending on how the API's Application ID
+        // URI is configured — accept either form, same workaround as CvTailr.Api's own
+        // DependencyInjection.cs. Without this, a token Api itself accepts (forwarded as-is via
+        // JdServiceClient) can be rejected here with a 401 if its `aud` is the bare ClientId.
+        services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
+        {
+            var azureAd = configuration.GetSection("AzureAd");
+            options.TokenValidationParameters.ValidAudiences =
+                [azureAd["Audience"], azureAd["ClientId"]];
+        });
+
         services.AddAuthorization();
 
         services.AddScoped<IFoundryClient, FoundryClient>();
