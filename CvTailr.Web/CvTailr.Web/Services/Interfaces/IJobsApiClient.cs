@@ -5,6 +5,9 @@ namespace CvTailr.Web.Services.Interfaces;
 
 public interface IJobsApiClient
 {
+    /// <summary>Exactly one of jdText/jdUrl must be non-empty.</summary>
+    Task<JdParseOutcome> ParseJdAsync(string? jdText, string? jdUrl, CancellationToken ct = default);
+
     Task<Job?> GetJobByIdAsync(string jobId, CancellationToken ct = default);
 
     /// <summary>Saves the job title/company/website confirmed in the New Job wizard's review step.</summary>

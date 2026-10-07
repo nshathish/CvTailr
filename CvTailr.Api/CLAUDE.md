@@ -1,9 +1,13 @@
 # CvTailr.Api
 
-.NET 10 Minimal API — the "brain" of CVTailr. Owns JD/CV parsing
-orchestration, scoring, tailoring, the ledger, and drill-question
-generation. References `CvTailr.Shared` directly (project reference).
-Everything else (Web, Mobile) talks to this project over HTTP/JSON only.
+.NET 10 Minimal API — the "brain" of CVTailr. Owns CV parsing, scoring,
+tailoring, the ledger, and drill-question generation directly; JD
+parsing itself lives in the separate `CvTailr.Jd.Api` service, which
+this project calls internally (see `Features/Jobs/JdServiceClient.cs`)
+and which is never exposed to Web/Mobile directly — they only ever see
+this project's `POST /api/jobs/parse`. References `CvTailr.Shared`
+directly (project reference). Everything else (Web, Mobile) talks to
+this project over HTTP/JSON only.
 
 ## Target
 
@@ -24,25 +28,23 @@ CvTailr.Api/
 │   one `AddXFeature()` per feature (see DependencyInjection.cs), then
 │   wires middleware and each feature's `MapXEndpoints()`
 ├── DependencyInjection.cs -> every DI registration lives here:
-│   `AddCommonInfrastructure()` plus `AddCvFeature()`, `AddJdFeature()`,
-│   `AddJobsFeature()`, `AddScoringFeature()`, `AddTailoringFeature()`,
-│   `AddLedgerFeature()`, `AddDrillFeature()` — `Program.cs` never
-│   registers a type directly
+│   `AddCommonInfrastructure()` plus `AddCvFeature()`, `AddJobsFeature()`,
+│   `AddScoringFeature()`, `AddTailoringFeature()`, `AddLedgerFeature()`,
+│   `AddDrillFeature()` — `Program.cs` never registers a type directly
 ├── Features/
 │ ├── Cv/        -> CvEndpoints.cs (MapGroup("/cv")), CvParsingService
 │ │                 (calls latex-service), CvSourceExtractor,
 │ │                 CosmosCvRepository, UnsupportedCvFormatException
-│ ├── Jd/        -> JdEndpoints.cs (MapGroup("/jd")), JdParsingService,
-│ │                 JdSourceResolver — the only two with a public
-│ │                 interface/DI registration in this feature.
-│ │                 JdUrlFetcher and JdHtmlExtractor are
-│ │                 JdSourceResolver's internal collaborators (no
-│ │                 interface — see "Services vs internal collaborators"
-│ │                 below), plus JdUrlException and PrivateNetworkGuard
-│ │                 (SSRF guard for JdUrlFetcher)
 │ ├── Jobs/      -> JobEndpoints.cs (MapGroup("/api/jobs")), JobService,
 │ │                 IJobRepository/CosmosJobRepository — a user's own
-│ │                 saved Jobs.
+│ │                 saved Jobs. `POST /api/jobs/parse` is the only
+│ │                 client-facing JD-parsing entry point: it calls
+│ │                 IJdServiceClient/JdServiceClient (a typed HttpClient,
+│ │                 base address from JdApiOptions/"JdApi:BaseUrl") to
+│ │                 reach the separate `CvTailr.Jd.Api` service, then
+│ │                 persists the result via JobService.CreateFromJdAsync.
+│ │                 Web/Mobile never call Jd.Api directly — do not
+│ │                 re-add a `/jd` or `/api/jd` endpoint group here.
 │ │                 Listings/ -> JobListingEndpoints.cs
 │ │                 (MapGroup("/api/job-listings")), JobListingsService,
 │ │                 JobListingCaptureService, the static helpers
@@ -85,8 +87,8 @@ Full rationale/history for this layout is in
 
 ## Endpoint conventions
 
-- One `MapGroup` per resource area (`/jd`, `/cv`, `/score`, `/tailor`,
-  `/ledger`, `/drill`), each living in that feature's own
+- One `MapGroup` per resource area (`/api/jobs`, `/cv`, `/score`,
+  `/tailor`, `/ledger`, `/drill`), each living in that feature's own
   `Features/<Name>/<Name>Endpoints.cs` and registered in `Program.cs`
   via an `app.MapXEndpoints()` call per feature — do not register raw
   `app.MapPost(...)` calls directly in `Program.cs`.
@@ -115,9 +117,11 @@ Not every class in a feature folder is a DI service — three tiers:
   `LedgerEntry.HasRecentWeakPerformance()`.
 - **Concrete type registered, no interface** when DI still needs to
   construct it (e.g. it needs a typed `HttpClient`) but it has exactly
-  one caller and no interface is pulling its weight — e.g.
-  `Features/Jd/JdUrlFetcher.cs`, registered via
-  `AddHttpClient<JdUrlFetcher>(...)`.
+  one caller and no interface is pulling its weight. `JdServiceClient`
+  (`Features/Jobs/JdServiceClient.cs`) is the one exception to this
+  tier in practice — it's registered behind `IJdServiceClient` even
+  though it has one caller, specifically so a test double can stand in
+  for the real `CvTailr.Jd.Api` HTTP call in tests.
 - **Not registered at all** when it has no constructor dependencies DI
   needs to supply — its one caller just `new()`s it (e.g.
   `JdSourceResolver` instantiating `JdHtmlExtractor` directly) or calls

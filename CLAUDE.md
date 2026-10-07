@@ -14,7 +14,15 @@ projects is either:
 - Direct .NET project reference to `CvTailr.Shared` (any .NET project —
   Api, and currently Web/Blazor and Mobile/MAUI too), or
 - HTTP/JSON against Api's documented (OpenAPI) contract (any non-.NET
-  piece, e.g. `latex-service`, or a future non-.NET UI).
+  piece, e.g. `latex-service`, or a future non-.NET UI, plus
+  `CvTailr.Jd.Api` — see below).
+
+`CvTailr.Jd.Api` is the one exception to "HTTP/JSON is only for non-.NET
+pieces": it's a .NET project but a genuinely separate deployable
+service (its own scaling/secrets/failure domain for JD parsing), not a
+library, so `CvTailr.Api` talks to it over HTTP/JSON like any other
+external service rather than via `ProjectReference` into Shared types.
+It is never called by Web/Mobile directly — see its entry below.
 
 `CvTailr.Shared` exists specifically to be reused across every .NET
 project in this repo — that's the point of pulling these models into
@@ -58,8 +66,16 @@ Projects:
   matched to rank shared listings against a user's master CV. `Job.
   JobListingId` links a Job back to the shared listing it was captured
   into or added from, if any.
-- `CvTailr.Api` — .NET 10 Minimal API. The "brain": parsing, scoring,
-  tailoring, ledger, drill-question generation. References Shared directly.
+- `CvTailr.Api` — .NET 10 Minimal API. The "brain": CV parsing, scoring,
+  tailoring, ledger, drill-question generation, plus owning the public
+  `POST /api/jobs/parse` entry point for JD parsing (which it fulfills
+  by calling `CvTailr.Jd.Api` — see below). References Shared directly.
+- `CvTailr.Jd.Api` — .NET 10 Minimal API. Internal-only JD parsing
+  service (resolves pasted text or a job posting URL, calls Foundry,
+  returns structured `JdRequirements`). Hidden behind `CvTailr.Api`'s
+  `/api/jobs/parse` — Web/Mobile never call it directly, and it should
+  never grow a client-facing surface of its own. References Shared
+  directly.
 - `CvTailr.Web` — Blazor app. CV/JD authoring, score review, tailoring
   diff approval. Talks to Api over HTTP only.
 - `CvTailr.Mobile` — MAUI (or Flutter) app. Voice-based interview drilling.

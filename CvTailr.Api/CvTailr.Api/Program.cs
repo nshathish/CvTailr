@@ -23,7 +23,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddCommonInfrastructure(builder.Configuration);
 builder.Services.AddCvFeature();
-builder.Services.AddJobsFeature();
+builder.Services.AddJobsFeature(builder.Configuration);
 builder.Services.AddScoringFeature();
 builder.Services.AddTailoringFeature();
 builder.Services.AddLedgerFeature();

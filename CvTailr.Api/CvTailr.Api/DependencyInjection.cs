@@ -84,35 +84,7 @@ public static class DependencyInjection
         return services;
     }
 
-    /*public static IServiceCollection AddJdFeature(this IServiceCollection services)
-    {
-        services.AddScoped<IJdParsingService, JdParsingService>();
-
-        // JdUrlFetcher is registered as a concrete type, not an interface: it needs a DI-managed
-        // typed HttpClient, but it has exactly one caller (JdSourceResolver) and no second
-        // implementation or test mock has ever been needed.
-        services.AddHttpClient<JdUrlFetcher>(client =>
-        {
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-            client.DefaultRequestHeaders.Accept.ParseAdd("text/html");
-        })
-        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-        {
-            // Redirects are followed manually in JdUrlFetcher so each hop can be re-validated.
-            AllowAutoRedirect = false,
-            // SSRF protection: resolve the host ourselves and only ever connect to a validated public IP.
-            ConnectCallback = JdUrlFetcher.ConnectCallback
-        });
-
-        // JdHtmlExtractor is never registered at all — it's stateless with no dependencies DI needs
-        // to supply, so JdSourceResolver just instantiates it directly.
-        services.AddScoped<IJdSourceResolver, JdSourceResolver>();
-
-        return services;
-    }*/
-
-    public static IServiceCollection AddJobsFeature(this IServiceCollection services)
+    public static IServiceCollection AddJobsFeature(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IJobRepository, CosmosJobRepository>();
         services.AddScoped<IJobService, JobService>();
@@ -120,6 +92,15 @@ public static class DependencyInjection
         services.AddScoped<IJobListingRepository, CosmosJobListingRepository>();
         services.AddScoped<IJobListingCaptureService, JobListingCaptureService>();
         services.AddScoped<IJobListingsService, JobListingsService>();
+
+        // Hidden internal service called only by JobEndpoints' POST /api/jobs/parse — see
+        // JdServiceClient. Jd.Api is never called by Web/Mobile directly.
+        services.Configure<JdApiOptions>(configuration.GetSection(JdApiOptions.SectionName));
+        services.AddHttpClient<IJdServiceClient, JdServiceClient>((sp, client) =>
+        {
+            var jdApiOptions = sp.GetRequiredService<IOptions<JdApiOptions>>().Value;
+            client.BaseAddress = new Uri(jdApiOptions.BaseUrl);
+        });
 
         return services;
     }
