@@ -1,4 +1,4 @@
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Registrable domains that are never a company's own domain — job board/ATS hosts, generic

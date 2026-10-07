@@ -1,7 +1,7 @@
 using CvTailr.Shared.Enums;
 using CvTailr.Shared.Jobs;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Pure match-percentage calculation between a JobListing's requirements and a user's

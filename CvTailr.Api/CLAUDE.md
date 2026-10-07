@@ -12,46 +12,88 @@ controllers, no Razor Pages.
 
 ## Folder layout
 
+This project is organized as vertical feature slices, not technical
+layers — each feature folder under `Features/` owns its endpoint,
+service(s), repository, and any feature-specific exception together,
+rather than those being split across parallel `Endpoints/`/`Services/`/
+`Data/` folders. `Common/` holds only what three or more features
+actually share.
+
 CvTailr.Api/
-├── Program.cs -> composition root: DI, middleware, route groups
-├── Endpoints/
-│ ├── JdEndpoints.cs -> MapGroup("/jd")
-│ ├── CvEndpoints.cs -> MapGroup("/cv")
-│ ├── ScoringEndpoints.cs -> MapGroup("/score")
-│ ├── TailoringEndpoints.cs -> MapGroup("/tailor")
-│ ├── LedgerEndpoints.cs -> MapGroup("/ledger")
-│ └── DrillEndpoints.cs -> MapGroup("/drill")
-├── Services/
-│ ├── IJdParsingService.cs / JdParsingService.cs
-│ ├── ICvParsingService.cs / CvParsingService.cs (calls latex-service)
-│ ├── IScoringService.cs / ScoringService.cs
-│ ├── ITailoringService.cs / TailoringService.cs
-│ ├── ILedgerService.cs / LedgerService.cs
-│ └── IDrillService.cs / DrillService.cs
-├── Clients/
-│ ├── FoundryClient.cs -> wraps Azure AI Foundry inference calls
-│ ├── LatexServiceClient.cs -> HTTP client for the Python latex-service
-│ └── SpeechClient.cs -> wraps Azure AI Speech (STT/TTS)
-├── Data/
-│ └── CosmosLedgerRepository.cs (+ interface)
-├── Exceptions/
-│ └── one custom exception type per file (e.g. JdUrlException.cs,
-│   UnsupportedCvFormatException.cs) — caught in the relevant Endpoints/ handler
-│   and mapped to a BadRequest with the exception's (user-safe) message
+├── Program.cs -> composition root: calls `AddCommonInfrastructure()` +
+│   one `AddXFeature()` per feature (see DependencyInjection.cs), then
+│   wires middleware and each feature's `MapXEndpoints()`
+├── DependencyInjection.cs -> every DI registration lives here:
+│   `AddCommonInfrastructure()` plus `AddCvFeature()`, `AddJdFeature()`,
+│   `AddJobsFeature()`, `AddScoringFeature()`, `AddTailoringFeature()`,
+│   `AddLedgerFeature()`, `AddDrillFeature()` — `Program.cs` never
+│   registers a type directly
+├── Features/
+│ ├── Cv/        -> CvEndpoints.cs (MapGroup("/cv")), CvParsingService
+│ │                 (calls latex-service), CvSourceExtractor,
+│ │                 CosmosCvRepository, UnsupportedCvFormatException
+│ ├── Jd/        -> JdEndpoints.cs (MapGroup("/jd")), JdParsingService,
+│ │                 JdSourceResolver — the only two with a public
+│ │                 interface/DI registration in this feature.
+│ │                 JdUrlFetcher and JdHtmlExtractor are
+│ │                 JdSourceResolver's internal collaborators (no
+│ │                 interface — see "Services vs internal collaborators"
+│ │                 below), plus JdUrlException and PrivateNetworkGuard
+│ │                 (SSRF guard for JdUrlFetcher)
+│ ├── Jobs/      -> JobEndpoints.cs (MapGroup("/api/jobs")), JobService,
+│ │                 IJobRepository/CosmosJobRepository — a user's own
+│ │                 saved Jobs.
+│ │                 Listings/ -> JobListingEndpoints.cs
+│ │                 (MapGroup("/api/job-listings")), JobListingsService,
+│ │                 JobListingCaptureService, the static helpers
+│ │                 JobListingMatcher/JobListingUrlHelper/
+│ │                 CompanyDomainResolver/ExcludedCompanyDomains, and
+│ │                 IJobListingRepository/CosmosJobListingRepository —
+│ │                 the user-independent shared JobListing cache. Split
+│ │                 into its own sub-namespace
+│ │                 (Features.Jobs.Listings) once Jobs/ grew past ten
+│ │                 files covering two distinct concerns — still a
+│ │                 vertical (by capability) split, not a horizontal
+│ │                 Endpoints/Services/Repositories one; don't introduce
+│ │                 those layers inside a feature folder.
+│ ├── Scoring/   -> ScoringEndpoints.cs (MapGroup("/score")), ScoringService
+│ ├── Tailoring/ -> TailoringEndpoints.cs (MapGroup("/tailor")), TailoringService
+│ ├── Ledger/    -> LedgerEndpoints.cs (MapGroup("/ledger")), LedgerService,
+│ │                 CosmosLedgerRepository
+│ └── Drill/     -> DrillEndpoints.cs (MapGroup("/drill")), DrillService
+├── Common/ -> used by 3+ features — don't add something here
+│ │            pre-emptively; start it inside the one feature that needs
+│ │            it and promote it only once a second feature genuinely
+│ │            needs the same thing
+│ ├── Auth/         -> CurrentUserContext, EntraIdOptions
+│ ├── Foundry/      -> FoundryClient (wraps Azure AI Foundry inference
+│ │                    calls), FoundryOptions
+│ ├── SkillTagging/ -> SkillTaggingService + TagCanonicalizer (used by
+│ │                    Cv and Jobs)
+│ ├── TailoredCv/   -> CosmosTailoredCvRepository +
+│ │                    CvDocumentResolutionExtensions (used by Jobs,
+│ │                    Scoring, Tailoring, Ledger, Drill)
+│ └── Cosmos/       -> CosmosOptions, CosmosContainerProvisioner
 ├── tasks/
 └── CvTailr.Api.csproj
 
+A Latex/Speech client (per the root CLAUDE.md tech stack) would live
+under its own `Common/` subfolder once added — neither exists yet.
+
+Full rationale/history for this layout is in
+`../.docs/api-services-simplification-options.md` at the solution root.
 
 ## Endpoint conventions
 
 - One `MapGroup` per resource area (`/jd`, `/cv`, `/score`, `/tailor`,
-  `/ledger`, `/drill`), registered in `Program.cs` via an
-  `app.MapXEndpoints()` extension method per group — do not register raw
+  `/ledger`, `/drill`), each living in that feature's own
+  `Features/<Name>/<Name>Endpoints.cs` and registered in `Program.cs`
+  via an `app.MapXEndpoints()` call per feature — do not register raw
   `app.MapPost(...)` calls directly in `Program.cs`.
 - Route handlers are thin: deserialize/validate input, call exactly one
   service method, return the result. No business logic, no direct
-  Cosmos/Foundry/HTTP calls inside a route lambda — those belong in
-  `Services/` and `Clients/`.
+  Cosmos/Foundry/HTTP calls inside a route lambda — those belong in the
+  feature's own service classes, or `Common/` for cross-feature infra.
 - Request/response DTOs are the types from `CvTailr.Shared` wherever
   possible. Only introduce an Api-local DTO when a shape is genuinely
   endpoint-specific and doesn't belong in Shared (e.g. a paged wrapper).
@@ -59,24 +101,36 @@ CvTailr.Api/
   OpenAPI generation stays accurate — this matters because the OpenAPI
   spec is the real contract for Web/Mobile per the root CLAUDE.md.
 
-## Services vs Clients
+## Services vs internal collaborators
 
-- **Clients/** wrap a specific external dependency (Azure AI Foundry,
-  the Python latex-service, Azure AI Speech) and do nothing else — no
-  business rules, just "send this, get that back," including
-  retry/timeout handling for that dependency.
-- **Services/** contain the actual orchestration and business rules
-  (e.g. `TailoringService` enforces the language-substitution scope and
-  the "never touch dates/companies" rule before calling `FoundryClient`;
-  `LedgerService` implements the recommend-not-auto-downgrade logic on
-  top of `LedgerEntry.HasRecentWeakPerformance()`).
-- Register both as scoped services via DI in `Program.cs`; endpoints
-  depend on `Services/` interfaces only, never on `Clients/` directly.
+Not every class in a feature folder is a DI service — three tiers:
+
+- **Interface + scoped DI registration** (in `DependencyInjection.cs`,
+  one `AddXFeature()` per feature) when something outside the class
+  needs to construct or substitute it — another feature/service, or a
+  test double. E.g. `TailoringService` enforces the
+  language-substitution scope and the "never touch dates/companies"
+  rule before calling `FoundryClient`; `LedgerService` implements the
+  recommend-not-auto-downgrade logic on top of
+  `LedgerEntry.HasRecentWeakPerformance()`.
+- **Concrete type registered, no interface** when DI still needs to
+  construct it (e.g. it needs a typed `HttpClient`) but it has exactly
+  one caller and no interface is pulling its weight — e.g.
+  `Features/Jd/JdUrlFetcher.cs`, registered via
+  `AddHttpClient<JdUrlFetcher>(...)`.
+- **Not registered at all** when it has no constructor dependencies DI
+  needs to supply — its one caller just `new()`s it (e.g.
+  `JdSourceResolver` instantiating `JdHtmlExtractor` directly) or calls
+  it as a static helper (e.g. `TagCanonicalizer`,
+  `JobListingUrlHelper`).
+
+Default to the narrowest tier that works; only add an interface once a
+second caller or a test double actually needs the seam.
 
 ## Azure AI Foundry usage
 
-- All model calls go through `Clients/FoundryClient.cs` — no other file
-  calls the Foundry SDK directly.
+- All model calls go through `Common/Foundry/FoundryClient.cs` — no
+  other file calls the Foundry SDK directly.
 - Prompts that produce structured data (JD requirement extraction,
   scoring rationale, drill question generation) must request/parse JSON
   output matching the relevant `CvTailr.Shared` type — never free-text
@@ -116,7 +170,10 @@ just documented:
 
 ## What NOT to do here
 
-- No direct Cosmos/Foundry/Speech SDK calls outside `Clients/`.
+- No direct Foundry/Speech SDK calls outside `Common/Foundry` (Foundry)
+  or a future `Common/Speech` — and no direct Cosmos SDK calls outside
+  each feature's own `CosmosXRepository` / `Common/Cosmos`.
 - No LaTeX parsing logic in this project — always delegate to
-  `latex-service` via `LatexServiceClient`.
+  `latex-service` via a dedicated HTTP client under `Common/` once one
+  is added (see root CLAUDE.md tech stack) — never inline here.
 - No MVC controllers, no Razor.

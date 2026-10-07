@@ -1,6 +1,6 @@
 using CvTailr.Shared.Jobs;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Best-effort capture of a user-independent JobListing when a Job is created from a URL (task

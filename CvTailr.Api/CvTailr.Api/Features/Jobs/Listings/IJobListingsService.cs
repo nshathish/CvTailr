@@ -1,4 +1,4 @@
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Shared job-listing matches ranked against a user's master CV, and adding a listing to a user's

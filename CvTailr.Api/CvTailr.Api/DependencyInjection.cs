@@ -8,6 +8,7 @@ using CvTailr.Api.Features.Cv;
 using CvTailr.Api.Features.Drill;
 using CvTailr.Api.Features.Jd;
 using CvTailr.Api.Features.Jobs;
+using CvTailr.Api.Features.Jobs.Listings;
 using CvTailr.Api.Features.Ledger;
 using CvTailr.Api.Features.Scoring;
 using CvTailr.Api.Features.Tailoring;
@@ -114,11 +115,12 @@ public static class DependencyInjection
 
     public static IServiceCollection AddJobsFeature(this IServiceCollection services)
     {
+        services.AddScoped<IJobRepository, CosmosJobRepository>();
+        services.AddScoped<IJobService, JobService>();
+
         services.AddScoped<IJobListingRepository, CosmosJobListingRepository>();
         services.AddScoped<IJobListingCaptureService, JobListingCaptureService>();
         services.AddScoped<IJobListingsService, JobListingsService>();
-        services.AddScoped<IJobRepository, CosmosJobRepository>();
-        services.AddScoped<IJobService, JobService>();
 
         return services;
     }
