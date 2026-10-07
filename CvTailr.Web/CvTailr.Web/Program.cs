@@ -31,7 +31,6 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddAntiforgery();
 
-builder.Services.AddScoped<IJdApiClient, JdApiClient>();
 builder.Services.AddScoped<ICvApiClient, CvApiClient>();
 builder.Services.AddScoped<IJobsApiClient, JobsApiClient>();
 builder.Services.AddScoped<IJobListingsApiClient, JobListingsApiClient>();

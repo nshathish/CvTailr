@@ -19,6 +19,44 @@ public static class JobEndpoints
             .WithDescription(
                 "Reads persisted Jobs — one record per JD a user has parsed and scored/tailored against their CV.");
 
+        group.MapPost("/parse",
+            async Task<Results<Ok<Job>, BadRequest<JdParseError>, UnprocessableEntity<JdParseError>>> (
+                ParseJdRequest request,
+                IJdServiceClient jdServiceClient,
+                IJobService jobService,
+                ICurrentUserContext currentUserContext,
+                CancellationToken cancellationToken) =>
+            {
+                var hasText = !string.IsNullOrWhiteSpace(request.JdText);
+                var hasUrl = !string.IsNullOrWhiteSpace(request.JdUrl);
+
+                if (hasText == hasUrl)
+                {
+                    return TypedResults.BadRequest(
+                        new JdParseError("InvalidInput", "Provide exactly one of jdText or jdUrl."));
+                }
+
+                // Delegates the actual parsing to the internal CvTailr.Jd.Api service (see
+                // JdServiceClient) — this endpoint is the only thing Web/Mobile ever call for
+                // turning a JD into a Job; Jd.Api itself is never exposed to them directly.
+                var outcome = await jdServiceClient.ParseAsync(request.JdText, request.JdUrl, cancellationToken);
+                if (outcome.Error is not null)
+                    return TypedResults.UnprocessableEntity(new JdParseError(outcome.Error.Code, outcome.Error.Message));
+
+                var result = outcome.Result!;
+                var userId = currentUserContext.GetUserId();
+                var job = await jobService.CreateFromJdAsync(
+                    userId, result.JdRequirements, result.SourceUrl, result.SourceMetadata, cancellationToken);
+
+                return TypedResults.Ok(job);
+            })
+            .WithName("ParseJd")
+            .WithSummary("Parse JD")
+            .WithDescription(
+                "Parses a job description — either pasted text or a job posting URL — via the internal JD " +
+                "parsing service, and persists the result as a new Job. Exactly one of jdText/jdUrl must be " +
+                "provided.");
+
         group.MapGet("/", async Task<Ok<List<JobResponse>>> (
                 IJobService jobService,
                 ICurrentUserContext currentUserContext,
@@ -173,3 +211,7 @@ public static class JobEndpoints
 public record JobCvResponse(TailoredCvDocument Document, bool IsTailored);
 
 public record UpdateJobDetailsRequest(string? RoleTitle, string? CompanyName, string? CompanyDomain);
+
+public record ParseJdRequest(string? JdText, string? JdUrl);
+
+public record JdParseError(string Code, string Message);

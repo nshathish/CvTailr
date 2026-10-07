@@ -43,16 +43,23 @@ typed Api client request carries a Bearer token acquired via
 ## How this project talks to the Api
 
 - One typed client per `CvTailr.Api` endpoint group/`MapGroup`
-  (`IJdApiClient`/`JdApiClient`, `ICvApiClient`/`CvApiClient`,
-  `IJobsApiClient`/`JobsApiClient`, `IScoreApiClient`/`ScoreApiClient`,
-  `ITailorApiClient`/`TailorApiClient`, and so on as new endpoint groups
-  — Ledger, Drill — get Web-side callers). This mirrors the boundary
-  Api itself already committed to (one `Services/` interface per
-  endpoint group there) — a client covering every endpoint group in one
-  fat class is the thing to avoid, not the default to reach for. Each
-  concrete client implements an interface in `Services/Interfaces/`, and
-  pages inject only the interface(s) they actually need via
-  constructor/`@inject` — never the concrete class.
+  (`ICvApiClient`/`CvApiClient`, `IJobsApiClient`/`JobsApiClient`,
+  `IScoreApiClient`/`ScoreApiClient`, `ITailorApiClient`/
+  `TailorApiClient`, and so on as new endpoint groups — Ledger, Drill —
+  get Web-side callers). This mirrors the boundary Api itself already
+  committed to (one `Services/` interface per endpoint group there) —
+  a client covering every endpoint group in one fat class is the thing
+  to avoid, not the default to reach for. Each concrete client
+  implements an interface in `Services/Interfaces/`, and pages inject
+  only the interface(s) they actually need via constructor/`@inject` —
+  never the concrete class.
+  `JobsApiClient.ParseJdAsync` (`POST api/jobs/parse`) is the one
+  exception to "one client per Api endpoint group": JD parsing is a
+  distinct capability internally (its own `CvTailr.Jd.Api` service,
+  called by the main Api — see root `CLAUDE.md`), but Web never talks
+  to it directly, so there is no `IJdApiClient` here — it's just
+  another method on the Jobs client, since from Web's point of view
+  parsing a JD is simply how a Job gets created.
 - All of them derive from `Services/ApiClientBase.cs`, which holds the
   shared plumbing: `IDownstreamApi` access, the wire-format
   `JsonSerializerOptions` (camelCase, string enums, matching Api's own
@@ -75,7 +82,7 @@ typed Api client request carries a Bearer token acquired via
   and doesn't belong in Shared — a small wrapper/result record that
   mirrors an Api endpoint's response envelope, not a domain model.
 - Registered individually in `Program.cs`
-  (`AddScoped<IJdApiClient, JdApiClient>()` etc.) — adding a new
+  (`AddScoped<IJobsApiClient, JobsApiClient>()` etc.) — adding a new
   endpoint group means adding both its client class and its DI
   registration, not a new method on an existing shared class.
 
@@ -86,8 +93,8 @@ CvTailr.Web/
 ├── Services/
 │ ├── ApiClientBase.cs -> shared plumbing (auth, JSON options, error handling) for every typed client
 │ ├── ApiClientException.cs
-│ ├── JdApiClient.cs / CvApiClient.cs / JobsApiClient.cs / ScoreApiClient.cs / TailorApiClient.cs -> one per Api endpoint group
-│ ├── Interfaces/ -> IJdApiClient.cs, ICvApiClient.cs, IJobsApiClient.cs, IScoreApiClient.cs, ITailorApiClient.cs
+│ ├── CvApiClient.cs / JobsApiClient.cs / ScoreApiClient.cs / TailorApiClient.cs -> one per Api endpoint group (JobsApiClient also covers JD parsing — see above)
+│ ├── Interfaces/ -> ICvApiClient.cs, IJobsApiClient.cs, IScoreApiClient.cs, ITailorApiClient.cs
 │ └── WorkflowStateService.cs
 ├── Components/
 │ ├── Pages/ -> routable pages (Jd input, Score review, Tailor review, etc.)
@@ -111,7 +118,7 @@ CvTailr.Web/
 ## UI/workflow conventions
 
 - The authoring flow maps directly onto the Api's endpoint sequence:
-  JD paste -> `/jd/parse`, CV parse -> `/cv/parse`, score ->
+  JD paste -> `/api/jobs/parse`, CV parse -> `/cv/parse`, score ->
   `/score`, tailoring review -> `/tailor/propose` then
   `/tailor/apply`. Build pages in that order — don't build a
   tailoring-review page before the score page exists and works, since

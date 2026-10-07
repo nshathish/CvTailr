@@ -1,7 +1,6 @@
 @page "/jobs/new"
 @rendermode InteractiveServer
 
-@inject IJdApiClient JdApiClient
 @inject IJobsApiClient JobsApiClient
 @inject IScoreApiClient ScoreApiClient
 @inject WorkflowStateService WorkflowState
@@ -345,7 +344,7 @@
             var jdText = _inputMode == JdInputMode.Text ? _jdText : null;
             var jdUrl = _inputMode == JdInputMode.Link ? _jdUrl.Trim() : null;
 
-            var outcome = await JdApiClient.ParseJdAsync(jdText, jdUrl);
+            var outcome = await JobsApiClient.ParseJdAsync(jdText, jdUrl);
             if (outcome.UrlError is not null)
             {
                 _linkErrorKind = outcome.UrlError;

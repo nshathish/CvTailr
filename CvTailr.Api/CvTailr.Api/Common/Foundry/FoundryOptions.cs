@@ -11,8 +11,6 @@ public class FoundryOptions
 
     public string CvParsingDeploymentName { get; set; } = string.Empty;
 
-    public string JdParsingDeploymentName { get; set; } = string.Empty;
-
     public string ScoringDeploymentName { get; set; } = string.Empty;
 
     public string SkillTaggingDeploymentName { get; set; } = string.Empty;

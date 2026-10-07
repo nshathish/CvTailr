@@ -10,6 +10,51 @@ namespace CvTailr.Web.Services;
 
 public class JobsApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstreamApi), IJobsApiClient
 {
+    public async Task<JdParseOutcome> ParseJdAsync(string? jdText, string? jdUrl, CancellationToken ct = default)
+    {
+        const string relativePath = "api/jobs/parse";
+        using var response = await DownstreamApi.CallApiForUserAsync(
+            ServiceName,
+            options =>
+            {
+                options.HttpMethod = "POST";
+                options.RelativePath = relativePath;
+            },
+            content: JsonContent.Create(new { jdText, jdUrl }, options: JsonOptions),
+            cancellationToken: ct);
+
+        // The Api returns 422 with a specific error code for a URL it couldn't turn into JD text
+        // (see CvTailr.Api's JobEndpoints/JdServiceClient, which proxies this from CvTailr.Jd.Api)
+        // — map the ones the page knows how to show inline; anything else falls through to the
+        // generic error handling below.
+        if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
+        {
+            var error = await response.Content.ReadFromJsonAsync<JdParseError>(JsonOptions, ct);
+            var urlError = error?.Code switch
+            {
+                "UrlNotAllowed" => JdUrlErrorKind.NotAllowed,
+                "UrlFetchFailed" => JdUrlErrorKind.FetchFailed,
+                "UrlNotReadable" => JdUrlErrorKind.NotReadable,
+                _ => (JdUrlErrorKind?)null
+            };
+
+            if (urlError is not null)
+                return new JdParseOutcome(Job: null, UrlError: urlError);
+
+            throw new ApiClientException(
+                $"POST /{relativePath} failed with status 422 {response.StatusCode}: {error?.Message ?? "Unprocessable request."}");
+        }
+
+        await ThrowIfUnsuccessfulAsync(response, "POST", relativePath, ct);
+
+        var result = await response.Content.ReadFromJsonAsync<Job>(JsonOptions, ct);
+        return new JdParseOutcome(
+            Job: result ?? throw new ApiClientException($"POST /{relativePath} returned an empty response body."),
+            UrlError: null);
+    }
+
+    private record JdParseError(string Code, string Message);
+
     public async Task<Job?> GetJobByIdAsync(string jobId, CancellationToken ct = default)
     {
         var relativePath = $"api/jobs/{Uri.EscapeDataString(jobId)}";
@@ -113,6 +158,15 @@ public class JobsApiClient(IDownstreamApi downstreamApi) : ApiClientBase(downstr
 // Mirrors CvTailr.Api's JobEndpoints.JobCvResponse exactly (Document, IsTailored). Reuses
 // CvTailr.Shared.Cv.TailoredCvDocument directly rather than a duplicate local copy — see
 // CvTailr.Web/CLAUDE.md's "How this project talks to the Api" section.
+public enum JdUrlErrorKind
+{
+    NotAllowed,
+    FetchFailed,
+    NotReadable
+}
+
+public record JdParseOutcome(Job? Job, JdUrlErrorKind? UrlError);
+
 public record JobCvResponse(TailoredCvDocument Document, bool IsTailored);
 
 // Mirrors CvTailr.Api's JobEndpoints.JobResponse — the dashboard-list shape, trimmed to the
