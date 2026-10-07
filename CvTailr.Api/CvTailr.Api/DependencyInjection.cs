@@ -6,7 +6,6 @@ using CvTailr.Api.Common.SkillTagging;
 using CvTailr.Api.Common.TailoredCv;
 using CvTailr.Api.Features.Cv;
 using CvTailr.Api.Features.Drill;
-using CvTailr.Api.Features.Jd;
 using CvTailr.Api.Features.Jobs;
 using CvTailr.Api.Features.Jobs.Listings;
 using CvTailr.Api.Features.Ledger;
@@ -85,7 +84,7 @@ public static class DependencyInjection
         return services;
     }
 
-    public static IServiceCollection AddJdFeature(this IServiceCollection services)
+    /*public static IServiceCollection AddJdFeature(this IServiceCollection services)
     {
         services.AddScoped<IJdParsingService, JdParsingService>();
 
@@ -111,7 +110,7 @@ public static class DependencyInjection
         services.AddScoped<IJdSourceResolver, JdSourceResolver>();
 
         return services;
-    }
+    }*/
 
     public static IServiceCollection AddJobsFeature(this IServiceCollection services)
     {

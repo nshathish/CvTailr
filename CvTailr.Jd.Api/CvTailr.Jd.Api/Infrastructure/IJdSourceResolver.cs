@@ -1,10 +1,13 @@
-namespace CvTailr.Api.Features.Jd;
+using CvTailr.Jd.Api.Domain;
+using CvTailr.Jd.Api.Infrastructure;
+
+namespace CvTailr.Jd.Api.Infrastructure;
 
 /// <summary>
 /// Resolves a JD-parse request's pasted text or job posting URL into JD text ready for
 /// <see cref="IJdParsingService"/> — for a URL, fetches and extracts it via
 /// <see cref="JdUrlFetcher"/> and <see cref="JdHtmlExtractor"/>. Throws
-/// <see cref="Jd.JdUrlException"/> on failure.
+/// <see cref="JdUrlException"/> on failure.
 /// </summary>
 public interface IJdSourceResolver
 {
@@ -19,14 +22,3 @@ public interface IJdSourceResolver
 /// (task 022) — server-side only, never part of the Api's response to the Web client.
 /// HiringOrganizationUrls likewise feeds CompanyDomain resolution (task 024) only.
 /// </summary>
-public record JdSource(
-    string Text,
-    string? RoleTitle,
-    string? CompanyName,
-    string? SourceUrl,
-    string? Location,
-    string? EmploymentType,
-    DateTimeOffset? DatePosted,
-    DateTimeOffset? ValidThrough,
-    string? PostingUrl,
-    List<string> HiringOrganizationUrls);

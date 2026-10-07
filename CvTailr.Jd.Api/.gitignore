@@ -1,0 +1,60 @@
+## .NET build results
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Xx]64/
+[Xx]86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+out/
+publish/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+## Build artifacts
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+
+## Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+## NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+.nuget/
+
+## Secrets / local config
+## (per-environment appsettings.*.json ignore rule lives in the root .gitignore)
+secrets.json
+*.env
+.env
+.env.*
+
+## OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Misc
+*.tmp
+*.temp
+*.bak
+*.swp

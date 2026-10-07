@@ -1,4 +1,6 @@
-namespace CvTailr.Api.Features.Jd;
+using CvTailr.Jd.Api.Domain;
+
+namespace CvTailr.Jd.Api.Infrastructure;
 
 public class JdSourceResolver(
     JdUrlFetcher jdUrlFetcher,
