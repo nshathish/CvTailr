@@ -40,11 +40,22 @@ CvTailr.Api/
 │ │                 interface — see "Services vs internal collaborators"
 │ │                 below), plus JdUrlException and PrivateNetworkGuard
 │ │                 (SSRF guard for JdUrlFetcher)
-│ ├── Jobs/      -> JobEndpoints.cs + JobListingEndpoints.cs, JobService,
-│ │                 JobListingCaptureService, JobListingsService, the
-│ │                 static helpers JobListingMatcher/JobListingUrlHelper/
+│ ├── Jobs/      -> JobEndpoints.cs (MapGroup("/api/jobs")), JobService,
+│ │                 IJobRepository/CosmosJobRepository — a user's own
+│ │                 saved Jobs.
+│ │                 Listings/ -> JobListingEndpoints.cs
+│ │                 (MapGroup("/api/job-listings")), JobListingsService,
+│ │                 JobListingCaptureService, the static helpers
+│ │                 JobListingMatcher/JobListingUrlHelper/
 │ │                 CompanyDomainResolver/ExcludedCompanyDomains, and
-│ │                 both CosmosJobRepository/CosmosJobListingRepository
+│ │                 IJobListingRepository/CosmosJobListingRepository —
+│ │                 the user-independent shared JobListing cache. Split
+│ │                 into its own sub-namespace
+│ │                 (Features.Jobs.Listings) once Jobs/ grew past ten
+│ │                 files covering two distinct concerns — still a
+│ │                 vertical (by capability) split, not a horizontal
+│ │                 Endpoints/Services/Repositories one; don't introduce
+│ │                 those layers inside a feature folder.
 │ ├── Scoring/   -> ScoringEndpoints.cs (MapGroup("/score")), ScoringService
 │ ├── Tailoring/ -> TailoringEndpoints.cs (MapGroup("/tailor")), TailoringService
 │ ├── Ledger/    -> LedgerEndpoints.cs (MapGroup("/ledger")), LedgerService,

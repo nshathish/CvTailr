@@ -1,6 +1,6 @@
 using CvTailr.Shared.Jobs;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 public interface IJobListingRepository
 {

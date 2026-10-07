@@ -1,4 +1,4 @@
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Resolves JdRequirements.CompanyDomain from parse-time candidates. Never infers a domain from

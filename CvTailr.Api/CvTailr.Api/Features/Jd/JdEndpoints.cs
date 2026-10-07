@@ -1,5 +1,6 @@
 using CvTailr.Api.Common.Auth;
 using CvTailr.Api.Features.Jobs;
+using CvTailr.Api.Features.Jobs.Listings;
 using CvTailr.Shared.Jobs;
 using Microsoft.AspNetCore.Http.HttpResults;
 

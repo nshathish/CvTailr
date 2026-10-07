@@ -1,6 +1,7 @@
 using CvTailr.Api.Common.Auth;
 using CvTailr.Api.Common.TailoredCv;
 using CvTailr.Api.Features.Cv;
+using CvTailr.Api.Features.Jobs.Listings;
 using CvTailr.Api.Features.Ledger;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Jobs;

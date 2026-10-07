@@ -3,7 +3,7 @@ using CvTailr.Shared.Jobs;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 public class CosmosJobListingRepository : IJobListingRepository
 {

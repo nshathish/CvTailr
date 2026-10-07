@@ -1,12 +1,13 @@
 using CvTailr.Api.Common.SkillTagging;
 using CvTailr.Api.Common.TailoredCv;
 using CvTailr.Api.Features.Cv;
+using CvTailr.Api.Features.Jobs;
 using CvTailr.Api.Features.Scoring;
 using CvTailr.Shared.Cv;
 using CvTailr.Shared.Jd;
 using CvTailr.Shared.Jobs;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 public class JobListingsService(
     ICvRepository cvRepository,

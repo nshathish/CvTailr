@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Pure URL string helpers for <see cref="JobListingCaptureService"/>. Both Canonicalise and

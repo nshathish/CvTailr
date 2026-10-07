@@ -1,7 +1,7 @@
 using CvTailr.Api.Common.Auth;
 using Microsoft.AspNetCore.Http.HttpResults;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 public static class JobListingEndpoints
 {

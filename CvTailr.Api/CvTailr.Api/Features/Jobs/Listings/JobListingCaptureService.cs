@@ -1,10 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using CvTailr.Api.Common.SkillTagging;
+using CvTailr.Api.Features.Jobs;
 using CvTailr.Shared.Jd;
 using CvTailr.Shared.Jobs;
 
-namespace CvTailr.Api.Features.Jobs;
+namespace CvTailr.Api.Features.Jobs.Listings;
 
 /// <summary>
 /// Captures a JobListing from a Job created via a URL, so future work (task 025) can show and
