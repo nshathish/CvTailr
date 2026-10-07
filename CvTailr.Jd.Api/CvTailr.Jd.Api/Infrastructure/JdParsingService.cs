@@ -1,8 +1,8 @@
-using CvTailr.Api.Common.Foundry;
+using CvTailr.Jd.Api.Infrastructure.Foundry;
 using CvTailr.Shared.Jd;
 using Microsoft.Extensions.Options;
 
-namespace CvTailr.Api.Features.Jd;
+namespace CvTailr.Jd.Api.Infrastructure;
 
 public class JdParsingService(
     IFoundryClient foundryClient,

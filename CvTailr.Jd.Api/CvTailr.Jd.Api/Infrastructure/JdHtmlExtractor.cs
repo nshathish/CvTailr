@@ -3,7 +3,7 @@ using System.Text.Json;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 
-namespace CvTailr.Api.Features.Jd;
+namespace CvTailr.Jd.Api.Infrastructure;
 
 public class JdHtmlExtractor
 {

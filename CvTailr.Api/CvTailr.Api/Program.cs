@@ -2,7 +2,6 @@ using CvTailr.Api;
 using CvTailr.Api.Common.Cosmos;
 using CvTailr.Api.Features.Cv;
 using CvTailr.Api.Features.Drill;
-using CvTailr.Api.Features.Jd;
 using CvTailr.Api.Features.Jobs;
 using CvTailr.Api.Features.Jobs.Listings;
 using CvTailr.Api.Features.Ledger;
@@ -24,7 +23,6 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddCommonInfrastructure(builder.Configuration);
 builder.Services.AddCvFeature();
-builder.Services.AddJdFeature();
 builder.Services.AddJobsFeature();
 builder.Services.AddScoringFeature();
 builder.Services.AddTailoringFeature();
@@ -59,7 +57,6 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
     .AllowAnonymous();
 
-app.MapJdEndpoints();
 app.MapCvEndpoints();
 app.MapScoringEndpoints();
 app.MapTailoringEndpoints();

@@ -1,6 +1,6 @@
 using CvTailr.Shared.Jd;
 
-namespace CvTailr.Api.Features.Jd;
+namespace CvTailr.Jd.Api.Infrastructure;
 
 public interface IJdParsingService
 {

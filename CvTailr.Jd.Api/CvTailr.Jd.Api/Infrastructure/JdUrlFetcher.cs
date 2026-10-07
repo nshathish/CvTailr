@@ -2,8 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
+using CvTailr.Jd.Api.Domain;
 
-namespace CvTailr.Api.Features.Jd;
+namespace CvTailr.Jd.Api.Infrastructure;
 
 /// <summary>
 /// Fetches a job posting URL's HTML for <see cref="JdSourceResolver"/>. SSRF protection lives in

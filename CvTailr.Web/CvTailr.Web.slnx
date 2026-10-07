@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="../CvTailr.Api/CvTailr.Api/CvTailr.Api.csproj" />
+  <Project Path="../CvTailr.Jd.Api/CvTailr.Jd.Api/CvTailr.Jd.Api.csproj" />
   <Project Path="../CVTailr.Shared/CVTailr.Shared/CVTailr.Shared.csproj" />
   <Project Path="CvTailr.Web/CvTailr.Web.csproj" />
 </Solution>

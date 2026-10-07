@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace CvTailr.Api.Features.Jd;
+namespace CvTailr.Jd.Api.Infrastructure;
 
 /// <summary>
 /// SSRF guard: decides whether a resolved IP address is safe to connect to from
